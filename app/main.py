@@ -18,7 +18,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image, ImageOps
 
 try:
-    from app.detector import FoodDetector
+    from app.detector import FoodDetector, format_food_name
     from app.llm import FoodLLM
     from app.schemas import (
         AnalyzeResponse,
@@ -27,7 +27,7 @@ try:
         PredictResponse,
     )
 except ImportError:
-    from detector import FoodDetector
+    from detector import FoodDetector, format_food_name
     from llm import FoodLLM
     from schemas import (
         AnalyzeResponse,
@@ -169,7 +169,7 @@ async def read_image(file: UploadFile) -> Image.Image:
 
 
 # ============================================================
-# WEB UI TEMPLATE (TỐI ƯU GIAO DIỆN HIỆN ĐẠI, GỌN GÀNG, BẢO MẬT NGUỒN AI)
+# WEB UI TEMPLATE (TỐI GIẢN, DÙNG LUCIDE ICONS, FORMAT TIẾNG VIỆT CÓ DẤU)
 # ============================================================
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -177,21 +177,22 @@ HTML_PAGE = """<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nhận Diện & Phân Tích Món Ăn Việt Nam | AI Food Recognition</title>
+  <title>Nhận Diện & Phân Tích Món Ăn Việt Nam</title>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons Library -->
+  <script src="https://unpkg.com/lucide@latest"></script>
   <style>
     :root {
       --primary: #e63946;
       --primary-hover: #d62828;
       --primary-light: #fef2f2;
-      --accent: #2563eb;
       --bg: #f8fafc;
       --card-bg: #ffffff;
       --text: #0f172a;
       --text-muted: #64748b;
       --border: #e2e8f0;
       --radius: 16px;
-      --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06);
+      --shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -200,7 +201,7 @@ HTML_PAGE = """<!DOCTYPE html>
       background: var(--bg);
       color: var(--text);
       line-height: 1.6;
-      padding: 24px 16px;
+      padding: 32px 16px;
     }
 
     .container {
@@ -208,10 +209,42 @@ HTML_PAGE = """<!DOCTYPE html>
       margin: 0 auto;
     }
 
+    /* LUCIDE ICON STYLES */
+    .lucide {
+      width: 18px;
+      height: 18px;
+      vertical-align: -3px;
+      display: inline-block;
+      stroke-width: 2.2;
+    }
+
+    .header-icon {
+      width: 28px;
+      height: 28px;
+      vertical-align: -5px;
+      color: var(--primary);
+    }
+
+    .upload-icon {
+      width: 44px;
+      height: 44px;
+      color: #94a3b8;
+      margin-bottom: 8px;
+      stroke-width: 1.8;
+    }
+
+    .empty-icon {
+      width: 44px;
+      height: 44px;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      stroke-width: 1.8;
+    }
+
     /* HEADER */
     header {
       text-align: center;
-      margin-bottom: 28px;
+      margin-bottom: 32px;
     }
 
     header h1 {
@@ -230,29 +263,6 @@ HTML_PAGE = """<!DOCTYPE html>
       margin-top: 6px;
       font-size: 1rem;
     }
-
-    .badges {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 14px;
-      flex-wrap: wrap;
-    }
-
-    .badge {
-      font-size: 0.82rem;
-      padding: 5px 14px;
-      border-radius: 999px;
-      font-weight: 600;
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      text-decoration: none;
-    }
-    .badge-model { background: #e0f2fe; color: #0284c7; }
-    .badge-ai { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
-    .badge-docs { background: #f1f5f9; color: #475569; border: 1px solid var(--border); transition: all 0.2s; }
-    .badge-docs:hover { background: #e2e8f0; color: #0f172a; }
 
     /* GRID */
     .main-grid {
@@ -296,7 +306,7 @@ HTML_PAGE = """<!DOCTYPE html>
     .upload-zone {
       border: 2px dashed #cbd5e1;
       border-radius: 14px;
-      padding: 36px 20px;
+      padding: 38px 20px;
       text-align: center;
       cursor: pointer;
       transition: all 0.2s ease;
@@ -305,12 +315,6 @@ HTML_PAGE = """<!DOCTYPE html>
     .upload-zone:hover, .upload-zone.dragover {
       border-color: var(--primary);
       background: var(--primary-light);
-    }
-    .upload-zone svg {
-      width: 44px;
-      height: 44px;
-      color: #94a3b8;
-      margin-bottom: 8px;
     }
 
     /* INPUT PREVIEW INSIDE LEFT BOX */
@@ -364,10 +368,13 @@ HTML_PAGE = """<!DOCTYPE html>
       color: #334155;
       border: 1px solid #cbd5e1;
       border-radius: 8px;
-      padding: 5px 12px;
+      padding: 6px 12px;
       font-size: 0.82rem;
       font-weight: 600;
       cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       transition: all 0.2s;
     }
     .btn-change:hover {
@@ -468,12 +475,6 @@ HTML_PAGE = """<!DOCTYPE html>
       padding: 48px 16px;
       color: #94a3b8;
     }
-    .empty-state svg {
-      width: 48px;
-      height: 48px;
-      margin-bottom: 10px;
-      opacity: 0.6;
-    }
     .empty-state p { font-size: 0.95rem; font-weight: 500; }
 
     .tags-container {
@@ -505,25 +506,18 @@ HTML_PAGE = """<!DOCTYPE html>
     .info-card-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       margin-bottom: 14px;
       padding-bottom: 10px;
       border-bottom: 1px solid var(--border);
     }
 
     .info-card-header h3 {
-      font-size: 1.15rem;
+      font-size: 1.2rem;
       font-weight: 800;
       color: #0f172a;
-    }
-
-    .info-tag {
-      font-size: 0.75rem;
-      background: #dcfce7;
-      color: #15803d;
-      font-weight: 700;
-      padding: 3px 10px;
-      border-radius: 999px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .info-item {
@@ -533,7 +527,9 @@ HTML_PAGE = """<!DOCTYPE html>
     }
     .info-item strong {
       color: #334155;
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       margin-bottom: 2px;
     }
 
@@ -567,26 +563,25 @@ HTML_PAGE = """<!DOCTYPE html>
 <body>
   <div class="container">
     <header>
-      <h1>🍜 Nhận Diện & Phân Tích Món Ăn Việt Nam</h1>
+      <h1>
+        <i data-lucide="utensils" class="header-icon"></i>
+        Nhận Diện & Phân Tích Món Ăn Việt Nam
+      </h1>
       <p>Hệ thống Thị giác máy tính nhận diện thị giác kết hợp Trí tuệ nhân tạo phân tích ẩm thực chuyên sâu</p>
-      <div class="badges">
-        <span class="badge badge-model" id="model-status-badge">🎯 YOLO Model: Đang tải...</span>
-        <span class="badge badge-ai" id="ai-status-badge">✨ Hệ Thống Tri Thức: Sẵn sàng</span>
-        <a href="/docs" target="_blank" class="badge badge-docs">📖 Swagger API Docs</a>
-        <a href="/health" target="_blank" class="badge badge-docs">🩺 Kiểm tra Hệ Thống</a>
-      </div>
     </header>
 
     <div class="main-grid">
       <!-- CỘT TRÁI: DỮ LIỆU ĐẦU VÀO (INPUT) -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📷 1. Tải Ảnh Đầu Vào</div>
+          <div class="card-title">
+            <i data-lucide="camera"></i> 1. Tải Ảnh Đầu Vào
+          </div>
         </div>
 
         <!-- Khung chưa chọn ảnh -->
         <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          <i data-lucide="upload-cloud" class="upload-icon"></i>
           <p><strong>Bấm để chọn ảnh</strong> hoặc kéo thả file vào đây</p>
           <p style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">Hỗ trợ: JPG, JPEG, PNG, WEBP</p>
         </div>
@@ -598,7 +593,9 @@ HTML_PAGE = """<!DOCTYPE html>
           </div>
           <div class="preview-footer">
             <span class="file-name" id="file-name-text">anh_mon_an.jpg</span>
-            <button type="button" class="btn-change" onclick="document.getElementById('file-input').click()">🔄 Chọn ảnh khác</button>
+            <button type="button" class="btn-change" onclick="document.getElementById('file-input').click()">
+              <i data-lucide="refresh-cw"></i> Chọn ảnh khác
+            </button>
           </div>
         </div>
 
@@ -625,7 +622,9 @@ HTML_PAGE = """<!DOCTYPE html>
           </div>
 
           <button class="btn-submit" id="submit-btn" onclick="processImage()">
-            <span id="btn-text">🚀 Bắt Đầu Phân Tích</span>
+            <span id="btn-text">
+              <i data-lucide="sparkles"></i> Bắt Đầu Phân Tích
+            </span>
             <div class="spinner" id="btn-spinner" style="display:none;"></div>
           </button>
         </div>
@@ -634,12 +633,14 @@ HTML_PAGE = """<!DOCTYPE html>
       <!-- CỘT PHẢI: KẾT QUẢ ĐẦU RA (OUTPUT) -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title">📊 2. Kết Quả Nhận Diện & Phân Tích</div>
+          <div class="card-title">
+            <i data-lucide="layers"></i> 2. Kết Quả Nhận Diện & Phân Tích
+          </div>
         </div>
 
         <!-- Trạng thái trống lúc chưa phân tích -->
         <div class="empty-state" id="empty-state">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          <i data-lucide="image" class="empty-icon"></i>
           <p id="empty-state-text">Vui lòng tải ảnh ở ô bên trái và bấm "Bắt Đầu Phân Tích"</p>
         </div>
 
@@ -657,33 +658,44 @@ HTML_PAGE = """<!DOCTYPE html>
   </div>
 
   <script>
+    // BẢNG TRA CỨU CHUẨN HÓA TIẾNG VIỆT CÓ DẤU
+    const VIETNAMESE_NAMES = {
+      'Banh canh': 'Bánh canh', 'Banh chung': 'Bánh chưng', 'Banh cuon': 'Bánh cuốn',
+      'Banh khot': 'Bánh khọt', 'Banh mi': 'Bánh mì', 'Banh trang': 'Bánh tráng',
+      'Banh trang tron': 'Bánh tráng trộn', 'Banh xeo': 'Bánh xèo', 'Bo kho': 'Bò kho',
+      'Bo la lot': 'Bò lá lốt', 'Bong cai': 'Bông cải', 'Bun': 'Bún',
+      'Bun bo Hue': 'Bún bò Huế', 'Bun cha': 'Bún chả', 'Bun dau': 'Bún đậu',
+      'Bun mam': 'Bún mắm', 'Bun rieu': 'Bún riêu', 'Ca': 'Cá',
+      'Ca chua': 'Cà chua', 'Ca phao': 'Cà pháo', 'Ca rot': 'Cà rốt',
+      'Canh': 'Canh', 'Cha': 'Chả', 'Cha gio': 'Chả giò', 'Chanh': 'Chanh',
+      'Com': 'Cơm', 'Com tam': 'Cơm tấm', 'Con nguoi': 'Người',
+      'Cu kieu': 'Củ kiệu', 'Cua': 'Cua', 'Dau hu': 'Đậu hũ', 'Dua chua': 'Dưa chua',
+      'Dua leo': 'Dưa leo', 'Goi cuon': 'Gỏi cuốn', 'Hamburger': 'Hamburger',
+      'Heo quay': 'Heo quay', 'Hu tieu': 'Hủ tiếu', 'Kho qua thit': 'Khổ qua nhồi thịt',
+      'Khoai tay chien': 'Khoai tây chiên', 'Lau': 'Lẩu', 'Long heo': 'Lòng heo',
+      'Mi': 'Mì', 'Muc': 'Mực', 'Nam': 'Nấm', 'Oc': 'Ốc',
+      'Ot chuong': 'Ớt chuông', 'Pho': 'Phở', 'Pho mai': 'Phô mai', 'Rau': 'Rau',
+      'Salad': 'Salad', 'Thit bo': 'Thịt bò', 'Thit ga': 'Thịt gà', 'Thit heo': 'Thịt heo',
+      'Thit kho': 'Thịt kho', 'Thit nuong': 'Thịt nướng', 'Tom': 'Tôm',
+      'Trung': 'Trứng', 'Xoi': 'Xôi', 'Banh beo': 'Bánh bèo', 'Cao lau': 'Cao lầu',
+      'Mi Quang': 'Mì Quảng', 'Com chien duong chau': 'Cơm chiên Dương Châu',
+      'Bun cha ca': 'Bún chả cá', 'Com chien ga': 'Cơm chiên gà', 'Chao long': 'Cháo lòng',
+      'Nom hoa chuoi': 'Nộm hoa chuối', 'Nui xao bo': 'Nui xào bò', 'Sup cua': 'Súp cua'
+    };
+
+    function formatFoodName(name) {
+      if (!name) return '';
+      const clean = name.trim();
+      return VIETNAMESE_NAMES[clean] || clean;
+    }
+
     let selectedFile = null;
     let loadedImage = null;
 
-    // Kiểm tra trạng thái hệ thống lúc tải trang
-    fetch('/health').then(r => r.json()).then(data => {
-      const modelBadge = document.getElementById('model-status-badge');
-      if (data.model_loaded) {
-        modelBadge.innerText = '🎯 YOLO Model: Sẵn sàng';
-        modelBadge.style.background = '#e0f2fe';
-        modelBadge.style.color = '#0284c7';
-      } else {
-        modelBadge.innerText = '⚠️ YOLO Model: Chưa nạp';
-        modelBadge.style.background = '#fee2e2';
-        modelBadge.style.color = '#991b1b';
-      }
-
-      const aiBadge = document.getElementById('ai-status-badge');
-      if (data.ai_knowledge_ready) {
-        aiBadge.innerText = '✨ Hệ Thống Tri Thức: Sẵn sàng';
-        aiBadge.style.background = '#f0fdf4';
-        aiBadge.style.color = '#16a34a';
-      } else {
-        aiBadge.innerText = '⚠️ Hệ Thống Tri Thức: Cần cấu hình Key';
-        aiBadge.style.background = '#fef9c3';
-        aiBadge.style.color = '#854d0e';
-      }
-    }).catch(() => {});
+    // Khởi tạo Lucide Icons lần đầu
+    window.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+    });
 
     const fileInput = document.getElementById('file-input');
     const dropZone = document.getElementById('drop-zone');
@@ -705,7 +717,7 @@ HTML_PAGE = """<!DOCTYPE html>
       if (e.target.files.length) handleFile(e.target.files[0]);
     });
 
-    // XỬ LÝ KHI CHỌN ẢNH: HIỂN THỊ Ở CỘT TRÁI (KHÔNG HIỂN THỊ SANG CỘT PHẢI KHI CHƯA PHÂN TÍCH)
+    // XỬ LÝ KHI CHỌN ẢNH: HIỂN THỊ Ở CỘT TRÁI
     function handleFile(file) {
       selectedFile = file;
       fileNameText.innerText = `${file.name} (${Math.round(file.size / 1024)} KB)`;
@@ -723,6 +735,7 @@ HTML_PAGE = """<!DOCTYPE html>
           document.getElementById('result-content').style.display = 'none';
           document.getElementById('empty-state').style.display = 'block';
           document.getElementById('empty-state-text').innerText = 'Ảnh đã sẵn sàng. Nhấn "Bắt Đầu Phân Tích" để nhận diện món ăn!';
+          if (window.lucide) lucide.createIcons();
         };
         loadedImage.src = e.target.result;
       };
@@ -745,7 +758,7 @@ HTML_PAGE = """<!DOCTYPE html>
       const spinner = document.getElementById('btn-spinner');
 
       btn.disabled = true;
-      btnText.innerText = "Đang xử lý...";
+      btnText.innerHTML = "Đang xử lý...";
       spinner.style.display = "inline-block";
 
       const formData = new FormData();
@@ -767,8 +780,9 @@ HTML_PAGE = """<!DOCTYPE html>
         alert("Lỗi: " + err.message);
       } finally {
         btn.disabled = false;
-        btnText.innerText = "🚀 Bắt Đầu Phân Tích";
+        btnText.innerHTML = '<i data-lucide="sparkles"></i> Bắt Đầu Phân Tích';
         spinner.style.display = "none";
+        if (window.lucide) lucide.createIcons();
       }
     }
 
@@ -798,14 +812,15 @@ HTML_PAGE = """<!DOCTYPE html>
           const color = colors[idx % colors.length];
           const b = d.box;
           const confPercent = Math.round(d.confidence * 100);
+          const vietnameseName = formatFoodName(d.class_name);
 
           // Vẽ Bounding Box
           ctx.lineWidth = Math.max(3, Math.round(canvas.width / 240));
           ctx.strokeStyle = color;
           ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
 
-          // Nhãn tên món
-          const label = `${d.class_name} (${confPercent}%)`;
+          // Nhãn tên món (Tiếng Việt có dấu)
+          const label = `${vietnameseName} (${confPercent}%)`;
           const fontSize = Math.max(14, Math.round(canvas.width / 36));
           ctx.font = `bold ${fontSize}px 'Plus Jakarta Sans', sans-serif`;
           const textWidth = ctx.measureText(label).width;
@@ -821,32 +836,59 @@ HTML_PAGE = """<!DOCTYPE html>
           chip.className = 'detection-chip';
           chip.style.backgroundColor = color + '20';
           chip.style.color = color;
-          chip.innerText = `🥢 ${d.class_name}: ${confPercent}%`;
+          chip.innerHTML = `<i data-lucide="tag"></i> ${vietnameseName}: ${confPercent}%`;
           tagsContainer.appendChild(chip);
         });
       }
 
-      // THẺ TRI THỨC ẨM THỰC (KHÔNG LỘ NGUỒN AI)
+      // THẺ TRI THỨC ẨM THỰC (DÙNG LUCIDE ICON, TÊN MÓN CÓ DẤU, KHÔNG CÓ BADGE PHÂN TÍCH CHUYÊN SÂU)
       if (data.food_info) {
         const info = data.food_info;
+        const vietnameseFoodName = formatFoodName(info.food_name);
         const ingBadges = (info.ingredients || []).map(i => `<span class="ingredient-badge">${i}</span>`).join('');
 
         infoContainer.innerHTML = `
           <div class="info-card">
             <div class="info-card-header">
-              <h3>🍲 ${info.food_name || 'Thông Tin Món Ăn'}</h3>
-              <span class="info-tag">✨ Phân Tích Chuyên Sâu</span>
+              <h3>
+                <i data-lucide="soup"></i>
+                ${vietnameseFoodName || 'Thông Tin Món Ăn'}
+              </h3>
             </div>
-            <div class="info-item"><strong>📖 Giới thiệu:</strong> <p>${info.description || 'Chưa có thông tin.'}</p></div>
-            <div class="info-item"><strong>📍 Nguồn gốc & Văn hóa:</strong> <p>${info.origin || 'Chưa có thông tin.'}</p></div>
-            <div class="info-item"><strong>🥩 Nguyên liệu chính:</strong><div class="ingredients-tags">${ingBadges || 'Đang cập nhật'}</div></div>
-            <div class="info-item"><strong>👅 Hương vị đặc trưng:</strong> <p>${info.taste || 'Đang cập nhật.'}</p></div>
-            <div class="info-item"><strong>👨‍🍳 Cách chế biến & Thưởng thức:</strong> <p>${info.preparation || 'Đang cập nhật.'}</p></div>
-            ${info.note ? `<div class="info-item"><strong>💡 Lưu ý ẩm thực:</strong> <p>${info.note}</p></div>` : ''}
+            <div class="info-item">
+              <strong><i data-lucide="book-open"></i> Giới thiệu:</strong>
+              <p>${info.description || 'Chưa có thông tin.'}</p>
+            </div>
+            <div class="info-item">
+              <strong><i data-lucide="map-pin"></i> Nguồn gốc & Văn hóa:</strong>
+              <p>${info.origin || 'Chưa có thông tin.'}</p>
+            </div>
+            <div class="info-item">
+              <strong><i data-lucide="layers"></i> Nguyên liệu chính:</strong>
+              <div class="ingredients-tags">${ingBadges || 'Đang cập nhật'}</div>
+            </div>
+            <div class="info-item">
+              <strong><i data-lucide="sparkles"></i> Hương vị đặc trưng:</strong>
+              <p>${info.taste || 'Đang cập nhật.'}</p>
+            </div>
+            <div class="info-item">
+              <strong><i data-lucide="chef-hat"></i> Cách chế biến & Thưởng thức:</strong>
+              <p>${info.preparation || 'Đang cập nhật.'}</p>
+            </div>
+            ${info.note ? `
+            <div class="info-item">
+              <strong><i data-lucide="info"></i> Lưu ý ẩm thực:</strong>
+              <p>${info.note}</p>
+            </div>` : ''}
           </div>
         `;
       } else if (data.message && detections.length > 0) {
-        infoContainer.innerHTML = `<div style="font-size:0.88rem; color:#64748b; margin-top:8px;">ℹ️ ${data.message}</div>`;
+        infoContainer.innerHTML = `<div style="font-size:0.88rem; color:#64748b; margin-top:8px;">${data.message}</div>`;
+      }
+
+      // Kích hoạt lại Lucide icons cho các phần tử vừa tạo
+      if (window.lucide) {
+        lucide.createIcons();
       }
     }
   </script>
@@ -968,10 +1010,13 @@ def food_info(
             ),
         )
 
+    # Chuẩn hóa tên món ăn sang tiếng Việt có dấu trước khi tra cứu
+    food_name_vn = format_food_name(request.food_name)
+
     try:
-        return active_llm.get_food_info(
-            request.food_name
-        )
+        res = active_llm.get_food_info(food_name_vn)
+        res.food_name = format_food_name(res.food_name)
+        return res
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -1025,7 +1070,7 @@ async def analyze(
         detections,
         key=lambda d: d.confidence,
     )
-    food_name = best_detection.class_name
+    food_name = format_food_name(best_detection.class_name)
 
     # 3. Tra cứu tri thức ẩm thực
     active_llm = get_llm()
@@ -1042,6 +1087,8 @@ async def analyze(
 
     try:
         information = active_llm.get_food_info(food_name)
+        if information:
+            information.food_name = format_food_name(information.food_name)
     except Exception as exc:
         return AnalyzeResponse(
             success=True,

@@ -14,13 +14,94 @@ except ImportError:
     from schemas import BoundingBox, Detection
 
 
+# Bảng chuẩn hóa tên món ăn sang tiếng Việt có dấu
+VIETNAMESE_FOOD_NAMES = {
+    "Banh canh": "Bánh canh",
+    "Banh chung": "Bánh chưng",
+    "Banh cuon": "Bánh cuốn",
+    "Banh khot": "Bánh khọt",
+    "Banh mi": "Bánh mì",
+    "Banh trang": "Bánh tráng",
+    "Banh trang tron": "Bánh tráng trộn",
+    "Banh xeo": "Bánh xèo",
+    "Bo kho": "Bò kho",
+    "Bo la lot": "Bò lá lốt",
+    "Bong cai": "Bông cải",
+    "Bun": "Bún",
+    "Bun bo Hue": "Bún bò Huế",
+    "Bun cha": "Bún chả",
+    "Bun dau": "Bún đậu",
+    "Bun mam": "Bún mắm",
+    "Bun rieu": "Bún riêu",
+    "Ca": "Cá",
+    "Ca chua": "Cà chua",
+    "Ca phao": "Cà pháo",
+    "Ca rot": "Cà rốt",
+    "Canh": "Canh",
+    "Cha": "Chả",
+    "Cha gio": "Chả giò",
+    "Chanh": "Chanh",
+    "Com": "Cơm",
+    "Com tam": "Cơm tấm",
+    "Con nguoi": "Người",
+    "Cu kieu": "Củ kiệu",
+    "Cua": "Cua",
+    "Dau hu": "Đậu hũ",
+    "Dua chua": "Dưa chua",
+    "Dua leo": "Dưa leo",
+    "Goi cuon": "Gỏi cuốn",
+    "Hamburger": "Hamburger",
+    "Heo quay": "Heo quay",
+    "Hu tieu": "Hủ tiếu",
+    "Kho qua thit": "Khổ qua nhồi thịt",
+    "Khoai tay chien": "Khoai tây chiên",
+    "Lau": "Lẩu",
+    "Long heo": "Lòng heo",
+    "Mi": "Mì",
+    "Muc": "Mực",
+    "Nam": "Nấm",
+    "Oc": "Ốc",
+    "Ot chuong": "Ớt chuông",
+    "Pho": "Phở",
+    "Pho mai": "Phô mai",
+    "Rau": "Rau",
+    "Salad": "Salad",
+    "Thit bo": "Thịt bò",
+    "Thit ga": "Thịt gà",
+    "Thit heo": "Thịt heo",
+    "Thit kho": "Thịt kho",
+    "Thit nuong": "Thịt nướng",
+    "Tom": "Tôm",
+    "Trung": "Trứng",
+    "Xoi": "Xôi",
+    "Banh beo": "Bánh bèo",
+    "Cao lau": "Cao lầu",
+    "Mi Quang": "Mì Quảng",
+    "Com chien duong chau": "Cơm chiên Dương Châu",
+    "Bun cha ca": "Bún chả cá",
+    "Com chien ga": "Cơm chiên gà",
+    "Chao long": "Cháo lòng",
+    "Nom hoa chuoi": "Nộm hoa chuối",
+    "Nui xao bo": "Nui xào bò",
+    "Sup cua": "Súp cua",
+}
+
+
+def format_food_name(name: str) -> str:
+    """Chuẩn hóa tên món ăn sang tiếng Việt có dấu."""
+    if not name:
+        return name
+    name_clean = name.strip()
+    return VIETNAMESE_FOOD_NAMES.get(name_clean, name_clean)
+
+
 class FoodDetector:
     """
     Class chịu trách nhiệm:
     - Load model YOLO
     - Nhận ảnh
     - Chạy object detection
-    - Chuyển kết quả YOLO thành dữ liệu BoundingBox & Detection
+    - Chuyển kết quả YOLO thành dữ liệu BoundingBox & Detection có dấu tiếng Việt
     """
 
     def __init__(
@@ -51,7 +132,7 @@ class FoodDetector:
         confidence_threshold: Optional[float] = None,
     ) -> List[Detection]:
         """
-        Nhận một ảnh PIL và trả về danh sách detection.
+        Nhận một ảnh PIL và trả về danh sách detection với tên tiếng Việt có dấu.
         """
         confidence = (
             confidence_threshold
@@ -84,8 +165,9 @@ class FoodDetector:
                 xyxy = boxes.xyxy[i].tolist()
                 x1, y1, x2, y2 = xyxy
 
-                # Lấy tên class từ model
-                class_name = self.model.names.get(class_id, f"Class {class_id}")
+                # Lấy tên class từ model và chuẩn hóa sang tiếng Việt có dấu
+                raw_class_name = self.model.names.get(class_id, f"Class {class_id}")
+                class_name = format_food_name(raw_class_name)
 
                 detection = Detection(
                     class_id=class_id,
@@ -105,8 +187,11 @@ class FoodDetector:
 
     def get_class_names(self) -> dict:
         """
-        Trả về danh sách class mà model nhận biết.
+        Trả về danh sách class đã được chuẩn hóa tiếng Việt.
         """
         if hasattr(self.model, "names"):
-            return self.model.names
+            return {
+                cid: format_food_name(name)
+                for cid, name in self.model.names.items()
+            }
         return {}
