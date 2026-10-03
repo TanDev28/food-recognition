@@ -41,4 +41,5 @@ class AnalyzeResponse(BaseModel):
     success: bool
     detections: List[Detection]
     food_info: Optional[FoodInfoResponse] = None
+    foods_info: List[FoodInfoResponse] = Field(default_factory=list)
     message: Optional[str] = None

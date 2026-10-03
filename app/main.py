@@ -2,7 +2,7 @@ import io
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 # Đảm bảo Python luôn tìm thấy các package trong app dù chạy từ đâu
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -169,7 +169,7 @@ async def read_image(file: UploadFile) -> Image.Image:
 
 
 # ============================================================
-# WEB UI TEMPLATE (TỐI GIẢN, DÙNG LUCIDE ICONS, FORMAT TIẾNG VIỆT CÓ DẤU)
+# WEB UI TEMPLATE (TỐI GIẢN, DÙNG LUCIDE ICONS, HỖ TRỢ NHIỀU MÓN ĂN)
 # ============================================================
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -494,13 +494,14 @@ HTML_PAGE = """<!DOCTYPE html>
       gap: 6px;
     }
 
-    /* CULINARY KNOWLEDGE CARD */
+    /* CULINARY KNOWLEDGE CARDS */
     .info-card {
       background: #f8fafc;
       border: 1px solid var(--border);
       border-radius: 14px;
       padding: 20px;
       margin-top: 14px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
     }
 
     .info-card-header {
@@ -786,7 +787,7 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    // HIỂN THỊ KẾT QUẢ SANG CỘT PHẢI
+    // HIỂN THỊ KẾT QUẢ SANG CỘT PHẢI (HỖ TRỢ HIỂN THỊ TẤT CẢ CÁC MÓN ĂN ĐƯỢC PHÁT HIỆN)
     function renderResults(data) {
       document.getElementById('empty-state').style.display = 'none';
       const resultContent = document.getElementById('result-content');
@@ -841,52 +842,59 @@ HTML_PAGE = """<!DOCTYPE html>
         });
       }
 
-      // THẺ TRI THỨC ẨM THỰC (DÙNG LUCIDE ICON, TÊN MÓN CÓ DẤU, KHÔNG CÓ BADGE PHÂN TÍCH CHUYÊN SÂU)
-      if (data.food_info) {
-        const info = data.food_info;
-        const vietnameseFoodName = formatFoodName(info.food_name);
-        const ingBadges = (info.ingredients || []).map(i => `<span class="ingredient-badge">${i}</span>`).join('');
+      // HIỂN THỊ THẺ TRI THỨC CHO TẤT CẢ CÁC MÓN PHÁT HIỆN ĐƯỢC (foods_info HOẶC food_info)
+      const foodsList = (data.foods_info && data.foods_info.length > 0)
+        ? data.foods_info
+        : (data.food_info ? [data.food_info] : []);
 
-        infoContainer.innerHTML = `
-          <div class="info-card">
-            <div class="info-card-header">
-              <h3>
-                <i data-lucide="soup"></i>
-                ${vietnameseFoodName || 'Thông Tin Món Ăn'}
-              </h3>
+      if (foodsList.length > 0) {
+        let cardsHtml = '';
+        foodsList.forEach((info, idx) => {
+          const vietnameseFoodName = formatFoodName(info.food_name);
+          const ingBadges = (info.ingredients || []).map(i => `<span class="ingredient-badge">${i}</span>`).join('');
+
+          cardsHtml += `
+            <div class="info-card" style="margin-top: ${idx === 0 ? '14px' : '20px'};">
+              <div class="info-card-header">
+                <h3>
+                  <i data-lucide="soup"></i>
+                  ${vietnameseFoodName || 'Thông Tin Món Ăn'}
+                </h3>
+              </div>
+              <div class="info-item">
+                <strong><i data-lucide="book-open"></i> Giới thiệu:</strong>
+                <p>${info.description || 'Chưa có thông tin.'}</p>
+              </div>
+              <div class="info-item">
+                <strong><i data-lucide="map-pin"></i> Nguồn gốc & Văn hóa:</strong>
+                <p>${info.origin || 'Chưa có thông tin.'}</p>
+              </div>
+              <div class="info-item">
+                <strong><i data-lucide="layers"></i> Nguyên liệu chính:</strong>
+                <div class="ingredients-tags">${ingBadges || 'Đang cập nhật'}</div>
+              </div>
+              <div class="info-item">
+                <strong><i data-lucide="sparkles"></i> Hương vị đặc trưng:</strong>
+                <p>${info.taste || 'Đang cập nhật.'}</p>
+              </div>
+              <div class="info-item">
+                <strong><i data-lucide="chef-hat"></i> Cách chế biến & Thưởng thức:</strong>
+                <p>${info.preparation || 'Đang cập nhật.'}</p>
+              </div>
+              ${info.note ? `
+              <div class="info-item">
+                <strong><i data-lucide="info"></i> Lưu ý ẩm thực:</strong>
+                <p>${info.note}</p>
+              </div>` : ''}
             </div>
-            <div class="info-item">
-              <strong><i data-lucide="book-open"></i> Giới thiệu:</strong>
-              <p>${info.description || 'Chưa có thông tin.'}</p>
-            </div>
-            <div class="info-item">
-              <strong><i data-lucide="map-pin"></i> Nguồn gốc & Văn hóa:</strong>
-              <p>${info.origin || 'Chưa có thông tin.'}</p>
-            </div>
-            <div class="info-item">
-              <strong><i data-lucide="layers"></i> Nguyên liệu chính:</strong>
-              <div class="ingredients-tags">${ingBadges || 'Đang cập nhật'}</div>
-            </div>
-            <div class="info-item">
-              <strong><i data-lucide="sparkles"></i> Hương vị đặc trưng:</strong>
-              <p>${info.taste || 'Đang cập nhật.'}</p>
-            </div>
-            <div class="info-item">
-              <strong><i data-lucide="chef-hat"></i> Cách chế biến & Thưởng thức:</strong>
-              <p>${info.preparation || 'Đang cập nhật.'}</p>
-            </div>
-            ${info.note ? `
-            <div class="info-item">
-              <strong><i data-lucide="info"></i> Lưu ý ẩm thực:</strong>
-              <p>${info.note}</p>
-            </div>` : ''}
-          </div>
-        `;
+          `;
+        });
+        infoContainer.innerHTML = cardsHtml;
       } else if (data.message && detections.length > 0) {
         infoContainer.innerHTML = `<div style="font-size:0.88rem; color:#64748b; margin-top:8px;">${data.message}</div>`;
       }
 
-      // Kích hoạt lại Lucide icons cho các phần tử vừa tạo
+      // Kích hoạt lại Lucide icons cho tất cả các thẻ vừa render
       if (window.lucide) {
         lucide.createIcons();
       }
@@ -1025,7 +1033,7 @@ def food_info(
 
 
 # ============================================================
-# ANALYZE (PIPELINE TOÀN DIỆN)
+# ANALYZE (PIPELINE TOÀN DIỆN: PHÂN TÍCH TẤT CẢ CÁC MÓN PHÁT HIỆN ĐƯỢC)
 # ============================================================
 
 @app.post(
@@ -1037,7 +1045,7 @@ async def analyze(
 ):
     """
     Pipeline phân tích hoàn chỉnh:
-    Ảnh -> YOLO nhận diện món -> Chọn món tin cậy nhất -> Phân tích tri thức ẩm thực chi tiết.
+    Ảnh -> YOLO nhận diện các món -> Lọc các món duy nhất -> LLM phân tích chi tiết công thức cho TẤT CẢ các món phát hiện được.
     """
     active_det = get_detector()
     if active_det is None:
@@ -1062,47 +1070,48 @@ async def analyze(
             success=True,
             detections=[],
             food_info=None,
+            foods_info=[],
             message="Không phát hiện được món ăn trong ảnh.",
         )
 
-    # 2. Chọn món có confidence cao nhất
-    best_detection = max(
-        detections,
-        key=lambda d: d.confidence,
-    )
-    food_name = format_food_name(best_detection.class_name)
+    # 2. Lấy danh sách tất cả các món ăn duy nhất phát hiện được (sắp xếp theo độ tin cậy)
+    sorted_detections = sorted(detections, key=lambda d: d.confidence, reverse=True)
+    unique_food_names: List[str] = []
+    seen = set()
+    for d in sorted_detections:
+        formatted_name = format_food_name(d.class_name)
+        if formatted_name.lower() not in seen:
+            seen.add(formatted_name.lower())
+            unique_food_names.append(formatted_name)
 
-    # 3. Tra cứu tri thức ẩm thực
+    # 3. Tra cứu tri thức ẩm thực cho TẤT CẢ các món phát hiện được
     active_llm = get_llm()
     if active_llm is None:
         return AnalyzeResponse(
             success=True,
             detections=detections,
             food_info=None,
+            foods_info=[],
             message=(
-                f"Đã nhận diện: {food_name}. "
+                f"Đã nhận diện {len(unique_food_names)} món: {', '.join(unique_food_names)}. "
                 "Hệ thống tri thức chưa được cấu hình API Key."
             ),
         )
 
+    foods_info: List[FoodInfoResponse] = []
     try:
-        information = active_llm.get_food_info(food_name)
-        if information:
-            information.food_name = format_food_name(information.food_name)
+        foods_info = active_llm.get_foods_info(unique_food_names)
+        for item in foods_info:
+            item.food_name = format_food_name(item.food_name)
     except Exception as exc:
-        return AnalyzeResponse(
-            success=True,
-            detections=detections,
-            food_info=None,
-            message=(
-                f"Nhận diện được {food_name}, "
-                f"nhưng chưa thể phân tích thông tin chi tiết: {str(exc)}"
-            ),
-        )
+        print(f"[Analyze] Loi khi lay thong tin danh sach mon: {exc}")
+
+    primary_food_info = foods_info[0] if foods_info else None
 
     return AnalyzeResponse(
         success=True,
         detections=detections,
-        food_info=information,
-        message="Phân tích hoàn tất.",
+        food_info=primary_food_info,
+        foods_info=foods_info,
+        message=f"Đã phân tích hoàn tất {len(foods_info)} món ăn." if foods_info else "Phân tích hoàn tất.",
     )

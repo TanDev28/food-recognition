@@ -17,8 +17,6 @@ except ImportError:
 # ============================================================
 # DANH SÁCH TOÀN BỘ MÔ HÌNH GEMINI ĐƯỢC CẤU HÌNH XOAY VÒNG
 # ============================================================
-# Thứ tự ưu tiên: các mô hình Text/Flash/Pro hiệu năng cao xếp đầu
-# để tối ưu tốc độ và độ chính xác tạo JSON, sau đó đến các mô hình mở rộng.
 GEMINI_MODELS_POOL: List[str] = [
     # Nhóm 1: Mô hình Flash & Pro xử lý Text/JSON tối ưu nhất
     "gemini-3.8-flash",
@@ -55,8 +53,9 @@ GEMINI_MODELS_POOL: List[str] = [
 
 class FoodLLM:
     """
-    Class chịu trách nhiệm gọi duy nhất Google Gemini LLM
-    với cơ chế xoay mô hình tự động (Model Fallback / Rotation) khi gặp lỗi.
+    Class chịu trách nhiệm gọi Google Gemini LLM
+    với cơ chế xoay mô hình tự động (Model Fallback / Rotation) khi gặp lỗi,
+    hỗ trợ tra cứu thông tin và công thức cho một hoặc nhiều món ăn cùng lúc.
     """
 
     def __init__(self):
@@ -65,7 +64,6 @@ class FoodLLM:
                 "Thu vien 'openai' chua duoc cai dat. Hay chay: pip install openai"
             )
 
-        # Lấy API Key từ các biến môi trường của Gemini / Google
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
         if not api_key:
@@ -86,7 +84,6 @@ class FoodLLM:
         else:
             self.models = list(GEMINI_MODELS_POOL)
 
-        # Nếu người dùng chỉ định một model cụ thể qua GEMINI_MODEL, ưu tiên đặt lên đầu
         preferred_model = os.getenv("GEMINI_MODEL")
         if preferred_model:
             preferred_model = preferred_model.strip()
@@ -116,9 +113,8 @@ class FoodLLM:
         food_name: str,
     ) -> FoodInfoResponse:
         """
-        Nhận tên món ăn và gọi Gemini để lấy thông tin.
-        Tự động xoay sang mô hình khác trong danh sách nếu mô hình hiện tại gặp lỗi
-        (Rate limit 429, 404, Quota exceeded, Timeout, 503, v.v.).
+        Nhận tên món ăn và gọi Gemini để lấy thông tin chi tiết.
+        Tự động xoay sang mô hình khác trong danh sách nếu mô hình hiện tại gặp lỗi.
         """
         food_name = food_name.strip()
         if not food_name:
@@ -127,7 +123,7 @@ class FoodLLM:
         prompt = f"""
 Bạn là chuyên gia ẩm thực Việt Nam.
 
-Hãy cung cấp thông tin về món ăn sau:
+Hãy cung cấp thông tin và công thức chế biến về món ăn sau:
 {food_name}
 
 Trả lời bằng JSON hợp lệ duy nhất với đúng cấu trúc sau (không kèm văn bản khác ngoài JSON):
@@ -151,7 +147,6 @@ Yêu cầu:
         total_models = len(self.models)
         errors = []
 
-        # Xoay vòng qua danh sách model bắt đầu từ model hiện tại
         for attempt in range(total_models):
             idx = (self.current_model_idx + attempt) % total_models
             model_name = self.models[idx]
@@ -172,7 +167,6 @@ Yêu cầu:
                 output = response.choices[0].message.content or ""
                 output = output.strip()
 
-                # Làm sạch markdown code block (```json ... ```) nếu có
                 if output.startswith("```"):
                     lines = output.splitlines()
                     if lines[0].startswith("```"):
@@ -181,39 +175,22 @@ Yêu cầu:
                         lines = lines[:-1]
                     output = "\n".join(lines).strip()
 
-                # Regex tìm chuỗi JSON giữa dấu ngoặc nhọn { ... }
                 match = re.search(r"\{.*\}", output, re.DOTALL)
                 if match:
                     output = match.group(0)
 
                 data: dict[str, Any] = json.loads(output)
 
-                # Thành công: Cập nhật current_model_idx và trả kết quả
                 self.current_model_idx = idx
                 print(f"[Gemini] Thanh cong voi model: {model_name}")
 
                 return FoodInfoResponse(
                     food_name=data.get("food_name", food_name),
-                    description=data.get(
-                        "description",
-                        "Chưa có thông tin."
-                    ),
-                    origin=data.get(
-                        "origin",
-                        "Chưa có thông tin."
-                    ),
-                    ingredients=data.get(
-                        "ingredients",
-                        []
-                    ),
-                    taste=data.get(
-                        "taste",
-                        "Chưa có thông tin."
-                    ),
-                    preparation=data.get(
-                        "preparation",
-                        "Chưa có thông tin."
-                    ),
+                    description=data.get("description", "Chưa có thông tin."),
+                    origin=data.get("origin", "Chưa có thông tin."),
+                    ingredients=data.get("ingredients", []),
+                    taste=data.get("taste", "Chưa có thông tin."),
+                    preparation=data.get("preparation", "Chưa có thông tin."),
                     note=data.get("note"),
                     model_used=model_name,
                 )
@@ -227,8 +204,163 @@ Yêu cầu:
                 )
                 continue
 
-        # Nếu toàn bộ các mô hình trong danh sách đều gặp sự cố
         error_summary = " | ".join(errors[-3:])
         raise RuntimeError(
             f"Tất cả {total_models} mô hình Gemini đều gặp lỗi. Lỗi gần nhất: {error_summary}"
+        )
+
+    def get_foods_info(
+        self,
+        food_names: List[str],
+    ) -> List[FoodInfoResponse]:
+        """
+        Nhận danh sách nhiều món ăn (khi phát hiện 2, 3 món hoặc nhiều hơn)
+        và gọi Gemini lấy công thức, thông tin chi tiết cho TẤT CẢ các món đó.
+        """
+        # Lọc bỏ trùng lặp
+        unique_names: List[str] = []
+        seen = set()
+        for name in food_names:
+            clean = name.strip()
+            if clean and clean.lower() not in seen:
+                seen.add(clean.lower())
+                unique_names.append(clean)
+
+        if not unique_names:
+            return []
+
+        if len(unique_names) == 1:
+            try:
+                return [self.get_food_info(unique_names[0])]
+            except Exception:
+                return []
+
+        # Xây dựng prompt lấy thông tin nhiều món trong 1 request
+        list_str = "\n".join([f"{i+1}. {name}" for i, name in enumerate(unique_names)])
+        prompt = f"""
+Bạn là chuyên gia ẩm thực Việt Nam.
+
+Hãy cung cấp thông tin chi tiết và công thức chế biến cho từng món ăn trong danh sách sau:
+{list_str}
+
+Trả lời bằng một mảng JSON (JSON array) hợp lệ duy nhất, mỗi phần tử tương ứng với một món ăn theo đúng cấu trúc sau:
+[
+  {{
+    "food_name": "Tên món ăn",
+    "description": "Mô tả ngắn gọn về món ăn...",
+    "origin": "Nguồn gốc, xuất xứ, nét văn hóa...",
+    "ingredients": ["Nguyên liệu 1", "Nguyên liệu 2", "..."],
+    "taste": "Hương vị đặc trưng...",
+    "preparation": "Cách chế biến và thưởng thức...",
+    "note": "Lưu ý hoặc mẹo khi nấu/ăn (nếu có)..."
+  }}
+]
+
+Yêu cầu:
+- Viết bằng tiếng Việt chuẩn.
+- Bắt buộc trả về đầy đủ thông tin cho tất cả các món ăn trong danh sách trên.
+- ingredients phải là một danh sách các nguyên liệu chính.
+- Chỉ trả về chuỗi JSON thuần túy, không định dạng markdown.
+"""
+
+        total_models = len(self.models)
+        errors = []
+
+        for attempt in range(total_models):
+            idx = (self.current_model_idx + attempt) % total_models
+            model_name = self.models[idx]
+
+            try:
+                response = self.client.chat.completions.create(
+                    model=model_name,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "Bạn là chuyên gia ẩm thực Việt Nam chỉ trả về mảng JSON hợp lệ duy nhất.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    temperature=0.3,
+                )
+
+                output = response.choices[0].message.content or ""
+                output = output.strip()
+
+                if output.startswith("```"):
+                    lines = output.splitlines()
+                    if lines[0].startswith("```"):
+                        lines = lines[1:]
+                    if lines and lines[-1].startswith("```"):
+                        lines = lines[:-1]
+                    output = "\n".join(lines).strip()
+
+                raw_data = None
+                match_arr = re.search(r"\[.*\]", output, re.DOTALL)
+                if match_arr:
+                    try:
+                        raw_data = json.loads(match_arr.group(0))
+                    except Exception:
+                        raw_data = None
+
+                if raw_data is None:
+                    match_obj = re.search(r"\{.*\}", output, re.DOTALL)
+                    if match_obj:
+                        try:
+                            parsed_obj = json.loads(match_obj.group(0))
+                            for val in parsed_obj.values():
+                                if isinstance(val, list):
+                                    raw_data = val
+                                    break
+                        except Exception:
+                            raw_data = None
+
+                if not isinstance(raw_data, list):
+                    raise ValueError(f"Kết quả không phải mảng JSON hợp lệ: {output[:100]}")
+
+                results: List[FoodInfoResponse] = []
+                for item in raw_data:
+                    if isinstance(item, dict):
+                        results.append(
+                            FoodInfoResponse(
+                                food_name=item.get("food_name", "Món ăn"),
+                                description=item.get("description", "Chưa có thông tin."),
+                                origin=item.get("origin", "Chưa có thông tin."),
+                                ingredients=item.get("ingredients", []),
+                                taste=item.get("taste", "Chưa có thông tin."),
+                                preparation=item.get("preparation", "Chưa có thông tin."),
+                                note=item.get("note"),
+                                model_used=model_name,
+                            )
+                        )
+
+                if results:
+                    self.current_model_idx = idx
+                    print(f"[Gemini] Thanh cong lay thong tin {len(results)} mon voi model: {model_name}")
+                    return results
+
+            except Exception as exc:
+                err_str = str(exc)
+                errors.append(f"[{model_name}]: {err_str[:120]}")
+                print(
+                    f"[Gemini Rotate] Model '{model_name}' loi phan tich danh sach ({err_str[:60]}...). "
+                    f"Dang chuyen sang model tiep theo..."
+                )
+                continue
+
+        # Nếu batch call thất bại qua các model, gọi fallback tuần tự từng món
+        print("[Gemini Fallback] Batch request that bai, thu goi tuan tu tung mon...")
+        fallback_results: List[FoodInfoResponse] = []
+        for name in unique_names:
+            try:
+                info = self.get_food_info(name)
+                fallback_results.append(info)
+            except Exception as e:
+                print(f"[Gemini Fallback] Khong the lay thong tin cho '{name}': {e}")
+
+        if fallback_results:
+            return fallback_results
+
+        error_summary = " | ".join(errors[-3:])
+        raise RuntimeError(
+            f"Không thể lấy thông tin món ăn từ các mô hình Gemini. Lỗi: {error_summary}"
         )
