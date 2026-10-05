@@ -120,13 +120,14 @@ get_llm()
 
 
 # ============================================================
-# HELPER FUNCTIONS
+# HELPER FUNCTIONS (TỐI ƯU BỘ NHỚ TRÁNH LỖI 502 TRÊN RENDER)
 # ============================================================
 
 async def read_image(file: UploadFile) -> Image.Image:
     """
-    Đọc file upload và chuyển thành PIL Image chuẩn RGB,
-    tự động căn chỉnh góc xoay theo EXIF từ máy ảnh điện thoại.
+    Đọc file upload và chuyển thành PIL Image chuẩn RGB.
+    Tự động xoay chuẩn theo EXIF từ máy ảnh điện thoại và
+    giới hạn kích thước tối đa (max 1280px) để chống tràn RAM (OOM) trên Render 512MB.
     """
     if not file.content_type:
         raise HTTPException(
@@ -155,12 +156,27 @@ async def read_image(file: UploadFile) -> Image.Image:
             detail="File ảnh rỗng.",
         )
 
+    # Giới hạn kích thước file upload 15MB
+    if len(content) > 15 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="Dung lượng file ảnh quá lớn (vui lòng chọn ảnh dưới 15MB).",
+        )
+
     try:
         raw_image = Image.open(io.BytesIO(content))
         image = ImageOps.exif_transpose(raw_image)
         if image is None:
             image = raw_image
-        return image.convert("RGB")
+        image = image.convert("RGB")
+
+        # Thu nhỏ ảnh nếu kích thước quá lớn (> 1280px) để tiết kiệm 80-90% RAM
+        # YOLOv8 resize về 640px nên hoàn toàn không làm giảm độ chính xác
+        max_dim = 1280
+        if max(image.size) > max_dim:
+            image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+
+        return image
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -169,7 +185,7 @@ async def read_image(file: UploadFile) -> Image.Image:
 
 
 # ============================================================
-# WEB UI TEMPLATE (TỐI GIẢN, DÙNG LUCIDE ICONS, HỖ TRỢ NHIỀU MÓN ĂN)
+# WEB UI TEMPLATE (TỐI ƯU BẮT LỖI 502 VÀ TRUYỀN CONFIDENCE)
 # ============================================================
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -743,7 +759,7 @@ HTML_PAGE = """<!DOCTYPE html>
       reader.readAsDataURL(file);
     }
 
-    // BẮT ĐẦU PHÂN TÍCH
+    // BẮT ĐẦU PHÂN TÍCH (TRUYỀN ĐÚNG CONFIDENCE VÀ BẮT LỖI 502/JSON AN TOÀN)
     async function processImage() {
       if (!selectedFile) {
         alert("Vui lòng chọn một bức ảnh trước!");
@@ -751,7 +767,8 @@ HTML_PAGE = """<!DOCTYPE html>
       }
 
       const mode = document.querySelector('input[name="api-mode"]:checked').value;
-      const conf = document.getElementById('conf-slider').value;
+      const confSlider = document.getElementById('conf-slider');
+      const conf = confSlider ? parseFloat(confSlider.value) : 0.25;
       const endpoint = mode === 'analyze' ? '/analyze' : '/predict';
 
       const btn = document.getElementById('submit-btn');
@@ -764,18 +781,33 @@ HTML_PAGE = """<!DOCTYPE html>
 
       const formData = new FormData();
       formData.append('file', selectedFile);
+      formData.append('confidence', conf); // Truyền giá trị confidence lên backend
 
       try {
         const response = await fetch(endpoint, {
           method: 'POST',
           body: formData
         });
-        const data = await response.json();
 
+        // Xử lý an toàn khi phản hồi không thành công (tránh crash JSON khi gặp 502, 504)
         if (!response.ok) {
-          throw new Error(data.detail || 'Lỗi xử lý hệ thống');
+          let errorMsg = `Lỗi máy chủ (${response.status})`;
+          try {
+            const errData = await response.json();
+            if (errData && errData.detail) errorMsg = errData.detail;
+          } catch (_) {
+            if (response.status === 502) {
+              errorMsg = "Máy chủ đang thức dậy từ chế độ ngủ hoặc tạm quá tải (502 Bad Gateway). Vui lòng đợi 15-30 giây và nhấn thử lại!";
+            } else if (response.status === 504) {
+              errorMsg = "Thời gian xử lý quá lâu (504 Gateway Timeout). Vui lòng thử lại với ảnh dung lượng nhỏ hơn!";
+            } else if (response.status === 500) {
+              errorMsg = "Máy chủ gặp sự cố nội bộ khi xử lý (500). Vui lòng thử lại!";
+            }
+          }
+          throw new Error(errorMsg);
         }
 
+        const data = await response.json();
         renderResults(data);
       } catch (err) {
         alert("Lỗi: " + err.message);
@@ -787,7 +819,7 @@ HTML_PAGE = """<!DOCTYPE html>
       }
     }
 
-    // HIỂN THỊ KẾT QUẢ SANG CỘT PHẢI (HỖ TRỢ HIỂN THỊ TẤT CẢ CÁC MÓN ĂN ĐƯỢC PHÁT HIỆN)
+    // HIỂN THỊ KẾT QUẢ SANG CỘT PHẢI (LỌC THEO ĐÚNG NGƯỠNG CONFIDENCE)
     function renderResults(data) {
       document.getElementById('empty-state').style.display = 'none';
       const resultContent = document.getElementById('result-content');
@@ -799,14 +831,19 @@ HTML_PAGE = """<!DOCTYPE html>
       const ctx = canvas.getContext('2d');
       ctx.drawImage(loadedImage, 0, 0);
 
-      const detections = data.detections || [];
+      // Đảm bảo chỉ hiển thị các detection thỏa mãn ngưỡng confidence hiện tại
+      const currentConf = parseFloat(document.getElementById('conf-slider').value) || 0.25;
+      const rawDetections = data.detections || [];
+      const detections = rawDetections.filter(d => d.confidence >= currentConf);
+
       const tagsContainer = document.getElementById('tags-container');
       const infoContainer = document.getElementById('culinary-info-container');
       tagsContainer.innerHTML = '';
       infoContainer.innerHTML = '';
 
       if (detections.length === 0) {
-        tagsContainer.innerHTML = '<span style="color:#64748b; font-style:italic;">Không tìm thấy món ăn nào với độ tin cậy này. Thử giảm Confidence!</span>';
+        const percentText = Math.round(currentConf * 100);
+        tagsContainer.innerHTML = `<span style="color:#64748b; font-style:italic;">Không tìm thấy món ăn nào với độ tin cậy &ge; ${percentText}%. Hãy thử kéo giảm thanh Confidence!</span>`;
       } else {
         const colors = ['#e63946', '#2a9d8f', '#e76f51', '#457b9d', '#9b5de5', '#f4a261'];
         detections.forEach((d, idx) => {
@@ -842,10 +879,17 @@ HTML_PAGE = """<!DOCTYPE html>
         });
       }
 
-      // HIỂN THỊ THẺ TRI THỨC CHO TẤT CẢ CÁC MÓN PHÁT HIỆN ĐƯỢC (foods_info HOẶC food_info)
-      const foodsList = (data.foods_info && data.foods_info.length > 0)
+      // HIỂN THỊ THẺ TRI THỨC CHO CÁC MÓN THỎA MÃN CONFIDENCE
+      const detectedNamesSet = new Set(detections.map(d => formatFoodName(d.class_name).toLowerCase()));
+      const rawFoodsList = (data.foods_info && data.foods_info.length > 0)
         ? data.foods_info
         : (data.food_info ? [data.food_info] : []);
+
+      // Lọc thông tin món theo các món còn lại sau khi lọc confidence
+      const foodsList = rawFoodsList.filter(info => {
+        if (detections.length === 0) return false;
+        return detectedNamesSet.has(formatFoodName(info.food_name).toLowerCase());
+      });
 
       if (foodsList.length > 0) {
         let cardsHtml = '';
@@ -947,7 +991,7 @@ def health():
 
 
 # ============================================================
-# PREDICT (CHỈ CHẠY YOLO)
+# PREDICT (CHỈ CHẠY YOLO - NHẬN ĐÚNG NGƯỠNG CONFIDENCE)
 # ============================================================
 
 @app.post(
@@ -956,9 +1000,10 @@ def health():
 )
 async def predict(
     file: UploadFile = File(...),
+    confidence: Optional[float] = Form(None),
 ):
     """
-    Nhận ảnh và chạy YOLO object detection.
+    Nhận ảnh và chạy YOLO object detection theo ngưỡng confidence yêu cầu.
     """
     active_det = get_detector()
     if active_det is None:
@@ -970,7 +1015,7 @@ async def predict(
     image = await read_image(file)
 
     try:
-        detections = active_det.predict(image)
+        detections = active_det.predict(image, confidence_threshold=confidence)
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -1033,7 +1078,7 @@ def food_info(
 
 
 # ============================================================
-# ANALYZE (PIPELINE TOÀN DIỆN: PHÂN TÍCH TẤT CẢ CÁC MÓN PHÁT HIỆN ĐƯỢC)
+# ANALYZE (PIPELINE TOÀN DIỆN - NHẬN ĐÚNG NGƯỠNG CONFIDENCE)
 # ============================================================
 
 @app.post(
@@ -1042,10 +1087,11 @@ def food_info(
 )
 async def analyze(
     file: UploadFile = File(...),
+    confidence: Optional[float] = Form(None),
 ):
     """
     Pipeline phân tích hoàn chỉnh:
-    Ảnh -> YOLO nhận diện các món -> Lọc các món duy nhất -> LLM phân tích chi tiết công thức cho TẤT CẢ các món phát hiện được.
+    Ảnh -> YOLO nhận diện theo confidence -> Lọc các món duy nhất -> LLM phân tích chi tiết công thức cho TẤT CẢ các món phát hiện được.
     """
     active_det = get_detector()
     if active_det is None:
@@ -1056,9 +1102,9 @@ async def analyze(
 
     image = await read_image(file)
 
-    # 1. YOLO Detect
+    # 1. YOLO Detect theo đúng ngưỡng confidence
     try:
-        detections = active_det.predict(image)
+        detections = active_det.predict(image, confidence_threshold=confidence)
     except Exception as exc:
         raise HTTPException(
             status_code=500,

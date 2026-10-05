@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from pathlib import Path
 from typing import List, Optional
 
@@ -7,6 +8,13 @@ try:
     from ultralytics import YOLO
 except ImportError:
     YOLO = None
+
+try:
+    import torch
+    # Giới hạn số threads CPU để tiết kiệm tài nguyên và RAM trên Render 512MB
+    torch.set_num_threads(2)
+except Exception:
+    torch = None
 
 try:
     from app.schemas import BoundingBox, Detection
@@ -132,10 +140,11 @@ class FoodDetector:
         confidence_threshold: Optional[float] = None,
     ) -> List[Detection]:
         """
-        Nhận một ảnh PIL và trả về danh sách detection với tên tiếng Việt có dấu.
+        Nhận một ảnh PIL và trả về danh sách detection với tên tiếng Việt có dấu,
+        áp dụng đúng ngưỡng confidence yêu cầu.
         """
         confidence = (
-            confidence_threshold
+            float(confidence_threshold)
             if confidence_threshold is not None
             else self.confidence_threshold
         )
@@ -143,12 +152,15 @@ class FoodDetector:
         # Đảm bảo ảnh ở dạng RGB
         image = image.convert("RGB")
 
-        results = self.model.predict(
-            source=image,
-            imgsz=self.image_size,
-            conf=confidence,
-            verbose=False,
-        )
+        # Tối ưu hóa bộ nhớ inference
+        ctx = torch.inference_mode() if torch is not None else nullcontext()
+        with ctx:
+            results = self.model.predict(
+                source=image,
+                imgsz=self.image_size,
+                conf=confidence,
+                verbose=False,
+            )
 
         detections: List[Detection] = []
 
@@ -161,6 +173,10 @@ class FoodDetector:
             for i in range(len(boxes)):
                 class_id = int(boxes.cls[i].item())
                 confidence_score = float(boxes.conf[i].item())
+
+                # Đảm bảo lọc chặt chẽ theo đúng ngưỡng confidence
+                if confidence_score < confidence:
+                    continue
 
                 xyxy = boxes.xyxy[i].tolist()
                 x1, y1, x2, y2 = xyxy
