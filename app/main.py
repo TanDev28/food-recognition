@@ -185,7 +185,7 @@ async def read_image(file: UploadFile) -> Image.Image:
 
 
 # ============================================================
-# WEB UI TEMPLATE (TỐI ƯU BẮT LỖI 502 VÀ TRUYỀN CONFIDENCE)
+# WEB UI TEMPLATE (ĐA NGÔN NGỮ VI/EN, LỊCH SỬ LOCAL STORAGE & THỐNG KÊ)
 # ============================================================
 
 HTML_PAGE = """<!DOCTYPE html>
@@ -225,7 +225,7 @@ HTML_PAGE = """<!DOCTYPE html>
       margin: 0 auto;
     }
 
-    /* LUCIDE ICON STYLES */
+    /* LUCIDE ICONS */
     .lucide {
       width: 18px;
       height: 18px;
@@ -257,10 +257,11 @@ HTML_PAGE = """<!DOCTYPE html>
       stroke-width: 1.8;
     }
 
-    /* HEADER */
+    /* HEADER & LANGUAGE SWITCHER */
     header {
       text-align: center;
-      margin-bottom: 32px;
+      margin-bottom: 28px;
+      position: relative;
     }
 
     header h1 {
@@ -280,7 +281,49 @@ HTML_PAGE = """<!DOCTYPE html>
       font-size: 1rem;
     }
 
-    /* GRID */
+    .lang-switch-wrap {
+      display: flex;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .lang-switch {
+      display: inline-flex;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      padding: 3px;
+      border-radius: 30px;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+      gap: 2px;
+    }
+
+    .lang-btn {
+      background: transparent;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+
+    .lang-btn:hover {
+      color: var(--text);
+    }
+
+    .lang-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 2px 8px rgba(230, 57, 70, 0.25);
+    }
+
+    /* MAIN GRID (INPUT / OUTPUT) */
     .main-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -333,7 +376,6 @@ HTML_PAGE = """<!DOCTYPE html>
       background: var(--primary-light);
     }
 
-    /* INPUT PREVIEW INSIDE LEFT BOX */
     .preview-box {
       border-radius: 14px;
       border: 1px solid var(--border);
@@ -566,6 +608,288 @@ HTML_PAGE = """<!DOCTYPE html>
       color: #334155;
     }
 
+    /* HISTORY & STATS SECTION */
+    .history-grid {
+      display: grid;
+      grid-template-columns: 310px 1fr;
+      gap: 24px;
+      margin-top: 24px;
+      align-items: start;
+    }
+
+    @media (max-width: 860px) {
+      .history-grid { grid-template-columns: 1fr; }
+    }
+
+    /* STATS CARD */
+    .stats-card {
+      background: var(--card-bg);
+    }
+
+    .stats-body {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .stat-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f8fafc;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+
+    .stat-label {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: #334155;
+    }
+
+    .stat-number {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .stat-recent-section {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .recent-foods-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .recent-food-badge {
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #1e293b;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .stat-empty {
+      font-size: 0.84rem;
+      color: #94a3b8;
+      font-style: italic;
+    }
+
+    /* HISTORY CARD */
+    .history-card {
+      background: var(--card-bg);
+    }
+
+    .history-count-badge {
+      font-size: 0.78rem;
+      font-weight: 700;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: 6px;
+    }
+
+    .btn-clear-history {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .btn-clear-history:hover {
+      background: #dc2626;
+      color: white;
+    }
+
+    .history-list {
+      max-height: 480px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .history-empty {
+      text-align: center;
+      padding: 40px 16px;
+      color: #94a3b8;
+    }
+
+    .history-empty-icon {
+      width: 40px;
+      height: 40px;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      stroke-width: 1.8;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 12px;
+      border-bottom: 1px solid var(--border);
+      transition: background 0.15s ease;
+      gap: 14px;
+    }
+    .history-item:last-child {
+      border-bottom: none;
+    }
+    .history-item:hover {
+      background: #f8fafc;
+      border-radius: 10px;
+    }
+
+    .history-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-thumb {
+      width: 62px;
+      height: 62px;
+      border-radius: 10px;
+      object-fit: cover;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      flex-shrink: 0;
+    }
+
+    .history-details {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
+    }
+
+    .history-food-title {
+      font-size: 1.02rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .history-meta-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .history-conf-tag {
+      font-weight: 700;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 1px 7px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    .history-date {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    .history-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn-history-view {
+      background: var(--primary-light);
+      color: var(--primary);
+      border: 1px solid rgba(230, 57, 70, 0.2);
+      border-radius: 8px;
+      padding: 7px 12px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn-history-view:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    .btn-history-del {
+      background: #f1f5f9;
+      color: #64748b;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s;
+    }
+    .btn-history-del:hover {
+      background: #fee2e2;
+      color: #dc2626;
+      border-color: #fca5a5;
+    }
+
+    /* TOAST NOTIFICATION */
+    .toast-box {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 12px 20px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.25s ease;
+      z-index: 9999;
+      pointer-events: none;
+    }
+    .toast-box.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
     .spinner {
       border: 3px solid rgba(255,255,255,0.3);
       border-radius: 50%;
@@ -582,25 +906,37 @@ HTML_PAGE = """<!DOCTYPE html>
     <header>
       <h1>
         <i data-lucide="utensils" class="header-icon"></i>
-        Nhận Diện & Phân Tích Món Ăn Việt Nam
+        <span data-i18n="appTitle">Nhận Diện & Phân Tích Món Ăn Việt Nam</span>
       </h1>
-      <p>Hệ thống Thị giác máy tính nhận diện thị giác kết hợp Trí tuệ nhân tạo phân tích ẩm thực chuyên sâu</p>
+      <p data-i18n="appSubtitle">Hệ thống Thị giác máy tính nhận diện thị giác kết hợp Trí tuệ nhân tạo phân tích ẩm thực chuyên sâu</p>
+      
+      <!-- BỘ CHUYỂN ĐỔI NGÔN NGỮ (VI / EN) -->
+      <div class="lang-switch-wrap">
+        <div class="lang-switch">
+          <button type="button" class="lang-btn active" id="btn-lang-vi" onclick="setLanguage('vi')">
+            <span>🇻🇳 Tiếng Việt</span>
+          </button>
+          <button type="button" class="lang-btn" id="btn-lang-en" onclick="setLanguage('en')">
+            <span>🇬🇧 English</span>
+          </button>
+        </div>
+      </div>
     </header>
 
-    <div class="main-grid">
+    <div class="main-grid" id="main-grid">
       <!-- CỘT TRÁI: DỮ LIỆU ĐẦU VÀO (INPUT) -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <i data-lucide="camera"></i> 1. Tải Ảnh Đầu Vào
+            <i data-lucide="camera"></i> <span data-i18n="step1Title">1. Tải Ảnh Đầu Vào</span>
           </div>
         </div>
 
         <!-- Khung chưa chọn ảnh -->
         <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
           <i data-lucide="upload-cloud" class="upload-icon"></i>
-          <p><strong>Bấm để chọn ảnh</strong> hoặc kéo thả file vào đây</p>
-          <p style="font-size:0.82rem; color:#94a3b8; margin-top:4px;">Hỗ trợ: JPG, JPEG, PNG, WEBP</p>
+          <p><strong data-i18n="uploadTitle">Bấm để chọn ảnh</strong> <span data-i18n="uploadOrDrag">hoặc kéo thả file vào đây</span></p>
+          <p style="font-size:0.82rem; color:#94a3b8; margin-top:4px;" data-i18n="uploadSub">Hỗ trợ: JPG, JPEG, PNG, WEBP</p>
         </div>
 
         <!-- Khung hiển thị ảnh đã chọn bên cột trái -->
@@ -611,7 +947,7 @@ HTML_PAGE = """<!DOCTYPE html>
           <div class="preview-footer">
             <span class="file-name" id="file-name-text">anh_mon_an.jpg</span>
             <button type="button" class="btn-change" onclick="document.getElementById('file-input').click()">
-              <i data-lucide="refresh-cw"></i> Chọn ảnh khác
+              <i data-lucide="refresh-cw"></i> <span data-i18n="changeImg">Chọn ảnh khác</span>
             </button>
           </div>
         </div>
@@ -621,7 +957,7 @@ HTML_PAGE = """<!DOCTYPE html>
         <div class="controls">
           <div>
             <div class="slider-group">
-              <label for="conf-slider">Độ tin cậy tối thiểu (Confidence):</label>
+              <label for="conf-slider" data-i18n="confLabel">Độ tin cậy tối thiểu (Confidence):</label>
               <span class="conf-badge" id="conf-val">25%</span>
             </div>
             <input type="range" id="conf-slider" min="0.05" max="0.95" step="0.05" value="0.25" oninput="document.getElementById('conf-val').innerText = Math.round(this.value * 100) + '%'">
@@ -630,17 +966,17 @@ HTML_PAGE = """<!DOCTYPE html>
           <div class="mode-select">
             <label class="mode-option">
               <input type="radio" name="api-mode" value="analyze" checked>
-              <span>Phân tích toàn diện (Nhận diện + Tri thức ẩm thực chi tiết)</span>
+              <span data-i18n="modeAnalyze">Phân tích toàn diện (Nhận diện + Tri thức ẩm thực chi tiết)</span>
             </label>
             <label class="mode-option">
               <input type="radio" name="api-mode" value="predict">
-              <span>Chỉ nhận diện vật thể (YOLO Detection)</span>
+              <span data-i18n="modePredict">Chỉ nhận diện vật thể (YOLO Detection)</span>
             </label>
           </div>
 
           <button class="btn-submit" id="submit-btn" onclick="processImage()">
             <span id="btn-text">
-              <i data-lucide="sparkles"></i> Bắt Đầu Phân Tích
+              <i data-lucide="sparkles"></i> <span data-i18n="btnSubmit">Bắt Đầu Phân Tích</span>
             </span>
             <div class="spinner" id="btn-spinner" style="display:none;"></div>
           </button>
@@ -651,14 +987,14 @@ HTML_PAGE = """<!DOCTYPE html>
       <div class="card">
         <div class="card-header">
           <div class="card-title">
-            <i data-lucide="layers"></i> 2. Kết Quả Nhận Diện & Phân Tích
+            <i data-lucide="layers"></i> <span data-i18n="step2Title">2. Kết Quả Nhận Diện & Phân Tích</span>
           </div>
         </div>
 
         <!-- Trạng thái trống lúc chưa phân tích -->
         <div class="empty-state" id="empty-state">
           <i data-lucide="image" class="empty-icon"></i>
-          <p id="empty-state-text">Vui lòng tải ảnh ở ô bên trái và bấm "Bắt Đầu Phân Tích"</p>
+          <p id="empty-state-text" data-i18n="emptyWait">Vui lòng tải ảnh ở ô bên trái và bấm "Bắt Đầu Phân Tích"</p>
         </div>
 
         <!-- Khu vực kết quả hiển thị sau khi bấm phân tích -->
@@ -672,10 +1008,145 @@ HTML_PAGE = """<!DOCTYPE html>
         </div>
       </div>
     </div>
+
+    <!-- KHU VỰC LỊCH SỬ & THỐNG KÊ NHẬN DIỆN -->
+    <div class="history-grid">
+      <!-- KHUNG THỐNG KÊ NHỎ -->
+      <div class="card stats-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i data-lucide="bar-chart-3"></i> <span data-i18n="statsTitle">Thống Kê Nhận Diện</span>
+          </div>
+        </div>
+        <div class="stats-body">
+          <div class="stat-item">
+            <span class="stat-label" data-i18n="statsTotal">Tổng số lần nhận diện:</span>
+            <span class="stat-number" id="stats-total-count">0</span>
+          </div>
+          <div class="stat-recent-section">
+            <span class="stat-label" data-i18n="statsRecent">Món được nhận diện gần đây:</span>
+            <div class="recent-foods-list" id="stats-recent-list">
+              <span class="stat-empty" data-i18n="statsNone">Chưa có dữ liệu</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- KHUNG LỊCH SỬ NHẬN DIỆN -->
+      <div class="card history-card">
+        <div class="card-header">
+          <div class="card-title">
+            <i data-lucide="history"></i> <span data-i18n="historyTitle">Lịch Sử Nhận Diện</span>
+            <span class="history-count-badge" id="history-badge">0</span>
+          </div>
+          <button type="button" class="btn-clear-history" id="btn-clear-history" onclick="clearAllHistory()">
+            <i data-lucide="trash-2"></i> <span data-i18n="historyClearAll">Xóa toàn bộ lịch sử</span>
+          </button>
+        </div>
+
+        <!-- Danh sách mục lịch sử -->
+        <div class="history-list" id="history-items-container">
+          <div class="history-empty" id="history-empty-placeholder">
+            <i data-lucide="clock" class="history-empty-icon"></i>
+            <p data-i18n="historyEmpty">Chưa có lịch sử nhận diện nào.</p>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script>
-    // BẢNG TRA CỨU CHUẨN HÓA TIẾNG VIỆT CÓ DẤU
+    // BẢNG DỊCH ĐA NGÔN NGỮ (VI / EN)
+    const TRANSLATIONS = {
+      vi: {
+        appTitle: "Nhận Diện & Phân Tích Món Ăn Việt Nam",
+        appSubtitle: "Hệ thống Thị giác máy tính nhận diện thị giác kết hợp Trí tuệ nhân tạo phân tích ẩm thực chuyên sâu",
+        step1Title: "1. Tải Ảnh Đầu Vào",
+        uploadTitle: "Bấm để chọn ảnh",
+        uploadOrDrag: "hoặc kéo thả file vào đây",
+        uploadSub: "Hỗ trợ: JPG, JPEG, PNG, WEBP",
+        changeImg: "Chọn ảnh khác",
+        confLabel: "Độ tin cậy tối thiểu (Confidence):",
+        modeAnalyze: "Phân tích toàn diện (Nhận diện + Tri thức ẩm thực chi tiết)",
+        modePredict: "Chỉ nhận diện vật thể (YOLO Detection)",
+        btnSubmit: "Bắt Đầu Phân Tích",
+        btnProcessing: "Đang xử lý...",
+        step2Title: "2. Kết Quả Nhận Diện & Phân Tích",
+        emptyWait: "Vui lòng tải ảnh ở ô bên trái và bấm \"Bắt Đầu Phân Tích\"",
+        emptyReady: "Ảnh đã sẵn sàng. Nhấn \"Bắt Đầu Phân Tích\" để nhận diện món ăn!",
+        noDetection: "Không tìm thấy món ăn nào với độ tin cậy &ge; {conf}%. Hãy thử kéo giảm thanh Confidence!",
+        statsTitle: "Thống Kê Nhận Diện",
+        statsTotal: "Tổng số lần nhận diện:",
+        statsRecent: "Món được nhận diện gần đây:",
+        statsNone: "Chưa có dữ liệu",
+        historyTitle: "Lịch Sử Nhận Diện",
+        historyClearAll: "Xóa toàn bộ lịch sử",
+        historyEmpty: "Chưa có lịch sử nhận diện nào.",
+        viewDetail: "Xem chi tiết",
+        deleteItem: "Xóa",
+        confirmClearAll: "Bạn có chắc chắn muốn xóa toàn bộ lịch sử nhận diện không?",
+        confirmDelete: "Bạn có chắc muốn xóa mục này khỏi lịch sử?",
+        historyLoaded: "Đã tải lại kết quả từ lịch sử!",
+        introLabel: "Giới thiệu:",
+        originLabel: "Nguồn gốc & Văn hóa:",
+        ingredientsLabel: "Nguyên liệu chính:",
+        tasteLabel: "Hương vị đặc trưng:",
+        prepLabel: "Cách chế biến & Thưởng thức:",
+        noteLabel: "Lưu ý ẩm thực:",
+        updating: "Đang cập nhật...",
+        noInfo: "Chưa có thông tin.",
+        selectFileWarn: "Vui lòng chọn một bức ảnh trước!",
+        serverErr502: "Máy chủ đang thức dậy từ chế độ ngủ hoặc tạm quá tải (502 Bad Gateway). Vui lòng đợi 15-30 giây và nhấn thử lại!",
+        serverErr504: "Thời gian xử lý quá lâu (504 Gateway Timeout). Vui lòng thử lại với ảnh dung lượng nhỏ hơn!",
+        serverErr500: "Máy chủ gặp sự cố nội bộ khi xử lý (500). Vui lòng thử lại!"
+      },
+      en: {
+        appTitle: "Vietnamese Food Recognition & Analysis",
+        appSubtitle: "Computer Vision object detection combined with AI-powered Culinary Knowledge System",
+        step1Title: "1. Upload Input Image",
+        uploadTitle: "Click to choose an image",
+        uploadOrDrag: "or drag & drop file here",
+        uploadSub: "Supports: JPG, JPEG, PNG, WEBP",
+        changeImg: "Change image",
+        confLabel: "Minimum Confidence Score:",
+        modeAnalyze: "Comprehensive Analysis (Detection + Detailed Culinary Knowledge)",
+        modePredict: "Object Detection Only (YOLO Detection)",
+        btnSubmit: "Start Analysis",
+        btnProcessing: "Processing...",
+        step2Title: "2. Detection & Analysis Results",
+        emptyWait: "Please upload an image on the left and click \"Start Analysis\"",
+        emptyReady: "Image ready. Click \"Start Analysis\" to recognize dishes!",
+        noDetection: "No food detected with confidence &ge; {conf}%. Try lowering the Confidence slider!",
+        statsTitle: "Recognition Statistics",
+        statsTotal: "Total recognitions:",
+        statsRecent: "Recently recognized dishes:",
+        statsNone: "No data available",
+        historyTitle: "Recognition History",
+        historyClearAll: "Clear All History",
+        historyEmpty: "No recognition history yet.",
+        viewDetail: "View Details",
+        deleteItem: "Delete",
+        confirmClearAll: "Are you sure you want to delete all recognition history?",
+        confirmDelete: "Are you sure you want to delete this item?",
+        historyLoaded: "Loaded results from history!",
+        introLabel: "Introduction:",
+        originLabel: "Origin & Culture:",
+        ingredientsLabel: "Main Ingredients:",
+        tasteLabel: "Flavor Profile:",
+        prepLabel: "Preparation & Serving:",
+        noteLabel: "Culinary Notes:",
+        updating: "Updating...",
+        noInfo: "No information available.",
+        selectFileWarn: "Please select an image first!",
+        serverErr502: "Server is waking up from sleep or temporarily overloaded (502 Bad Gateway). Please wait 15-30 seconds and retry!",
+        serverErr504: "Processing took too long (504 Gateway Timeout). Please retry with a smaller image!",
+        serverErr500: "Server encountered an internal error (500). Please retry!"
+      }
+    };
+
+    let currentLang = localStorage.getItem('food_app_lang') || 'vi';
+
+    // BẢNG CHUẨN HÓA TIẾNG VIỆT CÓ DẤU
     const VIETNAMESE_NAMES = {
       'Banh canh': 'Bánh canh', 'Banh chung': 'Bánh chưng', 'Banh cuon': 'Bánh cuốn',
       'Banh khot': 'Bánh khọt', 'Banh mi': 'Bánh mì', 'Banh trang': 'Bánh tráng',
@@ -700,17 +1171,385 @@ HTML_PAGE = """<!DOCTYPE html>
       'Nom hoa chuoi': 'Nộm hoa chuối', 'Nui xao bo': 'Nui xào bò', 'Sup cua': 'Súp cua'
     };
 
+    // BẢNG DỊCH TIẾNG ANH KÈM TÊN GỐC
+    const FOOD_NAMES_EN = {
+      'Bánh canh': 'Thick Noodle Soup (Bánh canh)',
+      'Bánh chưng': 'Square Sticky Rice Cake (Bánh chưng)',
+      'Bánh cuốn': 'Steamed Rice Rolls (Bánh cuốn)',
+      'Bánh khọt': 'Mini Crispy Pancakes (Bánh khọt)',
+      'Bánh mì': 'Vietnamese Baguette (Bánh mì)',
+      'Bánh tráng': 'Rice Paper (Bánh tráng)',
+      'Bánh tráng trộn': 'Rice Paper Salad (Bánh tráng trộn)',
+      'Bánh xèo': 'Crispy Vietnamese Pancake (Bánh xèo)',
+      'Bò kho': 'Beef Stew (Bò kho)',
+      'Bò lá lốt': 'Beef in Betel Leaves (Bò lá lốt)',
+      'Bông cải': 'Broccoli',
+      'Bún': 'Rice Vermicelli',
+      'Bún bò Huế': 'Hue Spicy Beef Noodles (Bún bò Huế)',
+      'Bún chả': 'Grilled Pork Noodles (Bún chả)',
+      'Bún đậu': 'Tofu & Noodle Platter (Bún đậu)',
+      'Bún mắm': 'Fermented Fish Noodles (Bún mắm)',
+      'Bún riêu': 'Crab Noodle Soup (Bún riêu)',
+      'Cá': 'Fish',
+      'Cà chua': 'Tomato',
+      'Cà pháo': 'Pickled Eggplant',
+      'Cà rốt': 'Carrot',
+      'Canh': 'Soup',
+      'Chả': 'Pork Roll (Chả)',
+      'Chả giò': 'Crispy Spring Rolls (Chả giò)',
+      'Chanh': 'Lime',
+      'Cơm': 'Steamed Rice',
+      'Cơm tấm': 'Broken Rice (Cơm tấm)',
+      'Người': 'Person',
+      'Củ kiệu': 'Pickled Allium',
+      'Cua': 'Crab',
+      'Đậu hũ': 'Tofu',
+      'Dưa chua': 'Pickled Greens',
+      'Dưa leo': 'Cucumber',
+      'Gỏi cuốn': 'Fresh Spring Rolls (Gỏi cuốn)',
+      'Hamburger': 'Hamburger',
+      'Heo quay': 'Roast Pork',
+      'Hủ tiếu': 'Kuy Teav Noodles (Hủ tiếu)',
+      'Khổ qua nhồi thịt': 'Stuffed Bitter Melon Soup',
+      'Khoai tây chiên': 'French Fries',
+      'Lẩu': 'Hotpot',
+      'Lòng heo': 'Pork Offal',
+      'Mì': 'Egg Noodles',
+      'Mực': 'Squid',
+      'Nấm': 'Mushroom',
+      'Ốc': 'Sea Snails (Ốc)',
+      'Ớt chuông': 'Bell Pepper',
+      'Phở': 'Pho Noodle Soup (Phở)',
+      'Phô mai': 'Cheese',
+      'Rau': 'Herbs & Greens',
+      'Salad': 'Salad',
+      'Thịt bò': 'Beef',
+      'Thịt gà': 'Chicken',
+      'Thịt heo': 'Pork',
+      'Thịt kho': 'Braised Pork (Thịt kho)',
+      'Thịt nướng': 'Grilled Meat',
+      'Tôm': 'Shrimp',
+      'Trứng': 'Egg',
+      'Xôi': 'Sticky Rice (Xôi)',
+      'Bánh bèo': 'Water Fern Cake (Bánh bèo)',
+      'Cao lầu': 'Cao Lau Noodles',
+      'Mì Quảng': 'Quang Style Noodles (Mì Quảng)',
+      'Cơm chiên Dương Châu': 'Yangzhou Fried Rice',
+      'Bún chả cá': 'Fish Cake Noodles',
+      'Cơm chiên gà': 'Chicken Fried Rice',
+      'Cháo lòng': 'Pork Congee',
+      'Nộm hoa chuối': 'Banana Blossom Salad',
+      'Nui xào bò': 'Stir-fried Macaroni with Beef',
+      'Súp cua': 'Crab Asparagus Soup'
+    };
+
+    // BẢNG EMOJI MÓN ĂN
+    const FOOD_EMOJIS = {
+      'Phở': '🍜', 'Pho': '🍜', 'Bún': '🍜', 'Bun': '🍜', 'Bún bò Huế': '🍜',
+      'Bún chả': '🍜', 'Bún đậu': '🥢', 'Bún mắm': '🍜', 'Bún riêu': '🍜',
+      'Bánh canh': '🍜', 'Hủ tiếu': '🍜', 'Mì': '🍜', 'Mì Quảng': '🍜',
+      'Cháo lòng': '🥣', 'Súp cua': '🥣', 'Canh': '🥣',
+      'Bánh xèo': '🥞', 'Bánh khọt': '🥞', 'Bánh cuốn': '🥞', 'Bánh bèo': '🥞',
+      'Bánh mì': '🥖', 'Cơm': '🍚', 'Cơm tấm': '🍚', 'Cơm chiên gà': '🍚',
+      'Cơm chiên Dương Châu': '🍚', 'Xôi': '🍙',
+      'Bò kho': '🍲', 'Thịt kho': '🍲', 'Lẩu': '🍲',
+      'Gỏi cuốn': '🥢', 'Chả giò': '🥢', 'Bánh tráng': '🫓', 'Bánh tráng trộn': '🥗',
+      'Thịt bò': '🥩', 'Bò lá lốt': '🥩', 'Thịt heo': '🥩', 'Thịt nướng': '🥩', 'Heo quay': '🥩',
+      'Thịt gà': '🍗', 'Cá': '🐟', 'Tôm': '🦐', 'Cua': '🦀', 'Ốc': '🐚', 'Mực': '🦑',
+      'Trứng': '🍳', 'Đậu hũ': '🧈', 'Rau': '🥗', 'Salad': '🥗', 'Nộm hoa chuối': '🥗',
+      'Khoai tây chiên': '🍟', 'Hamburger': '🍔'
+    };
+
     function formatFoodName(name) {
       if (!name) return '';
       const clean = name.trim();
       return VIETNAMESE_NAMES[clean] || clean;
     }
 
+    function getDisplayName(rawOrViName) {
+      const vi = formatFoodName(rawOrViName);
+      if (currentLang === 'en' && FOOD_NAMES_EN[vi]) {
+        return FOOD_NAMES_EN[vi];
+      }
+      return vi;
+    }
+
+    function getFoodEmoji(name) {
+      if (!name) return '🍲';
+      const clean = name.trim();
+      if (FOOD_EMOJIS[clean]) return FOOD_EMOJIS[clean];
+      for (const [key, emoji] of Object.entries(FOOD_EMOJIS)) {
+        if (clean.toLowerCase().includes(key.toLowerCase())) return emoji;
+      }
+      return '🍲';
+    }
+
+    // ĐỔI NGÔN NGỮ
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('food_app_lang', lang);
+
+      const viBtn = document.getElementById('btn-lang-vi');
+      const enBtn = document.getElementById('btn-lang-en');
+      if (viBtn && enBtn) {
+        if (lang === 'vi') {
+          viBtn.classList.add('active');
+          enBtn.classList.remove('active');
+        } else {
+          enBtn.classList.add('active');
+          viBtn.classList.remove('active');
+        }
+      }
+
+      // Cập nhật tất cả text data-i18n
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) {
+          el.innerText = TRANSLATIONS[lang][key];
+        }
+      });
+
+      // Nếu đang có kết quả hiển thị, re-render để cập nhật nhãn
+      if (window.currentResultData) {
+        renderResults(window.currentResultData, false);
+      }
+
+      renderHistoryUI();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function t(key, replacements = {}) {
+      let str = (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key]) || key;
+      for (const [k, v] of Object.entries(replacements)) {
+        str = str.replace(`{${k}}`, v);
+      }
+      return str;
+    }
+
+    // TOAST THÔNG BÁO
+    function showToast(msg) {
+      let toast = document.getElementById('toast-notification');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-notification';
+        toast.className = 'toast-box';
+        document.body.appendChild(toast);
+      }
+      toast.innerHTML = `<i data-lucide="check-circle-2"></i> ${msg}`;
+      toast.classList.add('show');
+      if (window.lucide) lucide.createIcons();
+      setTimeout(() => { toast.classList.remove('show'); }, 2500);
+    }
+
     let selectedFile = null;
     let loadedImage = null;
+    window.currentResultData = null;
 
-    // Khởi tạo Lucide Icons lần đầu
+    // QUẢN LÝ LỊCH SỬ & LOCAL STORAGE
+    function formatHistoryTime(d) {
+      const day = ('0' + d.getDate()).slice(-2);
+      const mon = ('0' + (d.getMonth() + 1)).slice(-2);
+      const yr = d.getFullYear();
+      const hr = ('0' + d.getHours()).slice(-2);
+      const min = ('0' + d.getMinutes()).slice(-2);
+      return `${day}/${mon}/${yr} - ${hr}:${min}`;
+    }
+
+    function createCompressedImage(img, maxDim, quality) {
+      try {
+        const canvas = document.createElement('canvas');
+        let w = img.naturalWidth || img.width;
+        let h = img.naturalHeight || img.height;
+        if (!w || !h) return '';
+        if (w > h) {
+          if (w > maxDim) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          }
+        } else {
+          if (h > maxDim) {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        return canvas.toDataURL('image/jpeg', quality);
+      } catch (err) {
+        console.warn("Resize image error:", err);
+        return '';
+      }
+    }
+
+    function getHistoryList() {
+      try {
+        const raw = localStorage.getItem('food_recognition_history');
+        return raw ? JSON.parse(raw) : [];
+      } catch (_) {
+        return [];
+      }
+    }
+
+    function safeSaveHistory(list) {
+      try {
+        localStorage.setItem('food_recognition_history', JSON.stringify(list));
+      } catch (e) {
+        console.warn("Storage quota warning, trimming history...", e);
+        while (list.length > 5) {
+          list.splice(list.length - 4, 4);
+          try {
+            localStorage.setItem('food_recognition_history', JSON.stringify(list));
+            break;
+          } catch (_) {}
+        }
+      }
+    }
+
+    function saveToHistory(item) {
+      let list = getHistoryList();
+      list.unshift(item);
+      if (list.length > 25) list = list.slice(0, 25);
+      safeSaveHistory(list);
+      renderHistoryUI();
+    }
+
+    function deleteHistoryItem(id) {
+      if (!confirm(t('confirmDelete'))) return;
+      let list = getHistoryList().filter(h => h.id !== id);
+      safeSaveHistory(list);
+      renderHistoryUI();
+    }
+
+    function clearAllHistory() {
+      if (!confirm(t('confirmClearAll'))) return;
+      localStorage.removeItem('food_recognition_history');
+      renderHistoryUI();
+    }
+
+    function loadHistoryItem(id) {
+      const list = getHistoryList();
+      const item = list.find(h => h.id === id);
+      if (!item) return;
+
+      const img = new Image();
+      img.onload = () => {
+        loadedImage = img;
+        inputPreviewImg.src = img.src;
+        dropZone.style.display = 'none';
+        previewBox.style.display = 'flex';
+        fileNameText.innerText = `${getDisplayName(item.primaryFood)} (${item.timestamp})`;
+
+        if (item.confThreshold) {
+          const slider = document.getElementById('conf-slider');
+          if (slider) {
+            slider.value = item.confThreshold;
+            document.getElementById('conf-val').innerText = Math.round(item.confThreshold * 100) + '%';
+          }
+        }
+
+        renderResults(item.data, false);
+        showToast(t('historyLoaded'));
+
+        const mainGrid = document.getElementById('main-grid');
+        if (mainGrid) {
+          mainGrid.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      };
+      img.src = item.previewImage || item.thumbnail;
+    }
+
+    function renderHistoryUI() {
+      const list = getHistoryList();
+      const countBadge = document.getElementById('history-badge');
+      const totalCount = document.getElementById('stats-total-count');
+      const recentContainer = document.getElementById('stats-recent-list');
+      const historyContainer = document.getElementById('history-items-container');
+
+      if (countBadge) countBadge.innerText = list.length;
+      if (totalCount) totalCount.innerText = list.length;
+
+      // Cập nhật thống kê món gần đây
+      if (recentContainer) {
+        if (list.length === 0) {
+          recentContainer.innerHTML = `<span class="stat-empty">${t('statsNone')}</span>`;
+        } else {
+          const seen = new Set();
+          const recentFoods = [];
+          for (const item of list) {
+            const foods = item.allFoods || [item.primaryFood];
+            for (const f of foods) {
+              if (f && !seen.has(f)) {
+                seen.add(f);
+                recentFoods.push(f);
+                if (recentFoods.length >= 8) break;
+              }
+            }
+            if (recentFoods.length >= 8) break;
+          }
+
+          recentContainer.innerHTML = recentFoods.map(f => {
+            const emoji = getFoodEmoji(f);
+            const dName = getDisplayName(f);
+            return `<span class="recent-food-badge">${emoji} ${dName}</span>`;
+          }).join('');
+        }
+      }
+
+      // Cập nhật danh sách lịch sử
+      if (historyContainer) {
+        if (list.length === 0) {
+          historyContainer.innerHTML = `
+            <div class="history-empty">
+              <i data-lucide="clock" class="history-empty-icon"></i>
+              <p>${t('historyEmpty')}</p>
+            </div>
+          `;
+        } else {
+          let html = '';
+          list.forEach(item => {
+            const emoji = getFoodEmoji(item.primaryFood);
+            const foodName = getDisplayName(item.primaryFood);
+            const viewText = t('viewDetail');
+            const delText = t('deleteItem');
+
+            html += `
+              <div class="history-item">
+                <div class="history-main">
+                  <img src="${item.thumbnail}" class="history-thumb" alt="${foodName}">
+                  <div class="history-details">
+                    <div class="history-food-title">
+                      <span>${emoji}</span> <span>${foodName}</span>
+                    </div>
+                    <div class="history-meta-row">
+                      <span class="history-conf-tag">${item.primaryConf}</span>
+                      <span class="history-date"><i data-lucide="calendar"></i> ${item.timestamp}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="history-actions">
+                  <button type="button" class="btn-history-view" onclick="loadHistoryItem('${item.id}')">
+                    <i data-lucide="eye"></i> ${viewText}
+                  </button>
+                  <button type="button" class="btn-history-del" onclick="deleteHistoryItem('${item.id}')" title="${delText}">
+                    <i data-lucide="trash-2"></i> ${delText}
+                  </button>
+                </div>
+              </div>
+            `;
+          });
+          historyContainer.innerHTML = html;
+        }
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // KHỞI TẠO
     window.addEventListener('DOMContentLoaded', () => {
+      setLanguage(currentLang);
+      renderHistoryUI();
       if (window.lucide) lucide.createIcons();
     });
 
@@ -743,15 +1582,13 @@ HTML_PAGE = """<!DOCTYPE html>
       reader.onload = (e) => {
         loadedImage = new Image();
         loadedImage.onload = () => {
-          // 1. Hiển thị ảnh xem trước ngay tại cột trái
           inputPreviewImg.src = e.target.result;
           dropZone.style.display = 'none';
           previewBox.style.display = 'flex';
 
-          // 2. Cột phải giữ nguyên trạng thái chờ phân tích
           document.getElementById('result-content').style.display = 'none';
           document.getElementById('empty-state').style.display = 'block';
-          document.getElementById('empty-state-text').innerText = 'Ảnh đã sẵn sàng. Nhấn "Bắt Đầu Phân Tích" để nhận diện món ăn!';
+          document.getElementById('empty-state-text').innerText = t('emptyReady');
           if (window.lucide) lucide.createIcons();
         };
         loadedImage.src = e.target.result;
@@ -759,10 +1596,10 @@ HTML_PAGE = """<!DOCTYPE html>
       reader.readAsDataURL(file);
     }
 
-    // BẮT ĐẦU PHÂN TÍCH (TRUYỀN ĐÚNG CONFIDENCE VÀ BẮT LỖI 502/JSON AN TOÀN)
+    // BẮT ĐẦU PHÂN TÍCH
     async function processImage() {
       if (!selectedFile) {
-        alert("Vui lòng chọn một bức ảnh trước!");
+        alert(t('selectFileWarn'));
         return;
       }
 
@@ -776,12 +1613,12 @@ HTML_PAGE = """<!DOCTYPE html>
       const spinner = document.getElementById('btn-spinner');
 
       btn.disabled = true;
-      btnText.innerHTML = "Đang xử lý...";
+      btnText.innerHTML = t('btnProcessing');
       spinner.style.display = "inline-block";
 
       const formData = new FormData();
       formData.append('file', selectedFile);
-      formData.append('confidence', conf); // Truyền giá trị confidence lên backend
+      formData.append('confidence', conf);
 
       try {
         const response = await fetch(endpoint, {
@@ -789,38 +1626,37 @@ HTML_PAGE = """<!DOCTYPE html>
           body: formData
         });
 
-        // Xử lý an toàn khi phản hồi không thành công (tránh crash JSON khi gặp 502, 504)
         if (!response.ok) {
-          let errorMsg = `Lỗi máy chủ (${response.status})`;
+          let errorMsg = `Server error (${response.status})`;
           try {
             const errData = await response.json();
             if (errData && errData.detail) errorMsg = errData.detail;
           } catch (_) {
-            if (response.status === 502) {
-              errorMsg = "Máy chủ đang thức dậy từ chế độ ngủ hoặc tạm quá tải (502 Bad Gateway). Vui lòng đợi 15-30 giây và nhấn thử lại!";
-            } else if (response.status === 504) {
-              errorMsg = "Thời gian xử lý quá lâu (504 Gateway Timeout). Vui lòng thử lại với ảnh dung lượng nhỏ hơn!";
-            } else if (response.status === 500) {
-              errorMsg = "Máy chủ gặp sự cố nội bộ khi xử lý (500). Vui lòng thử lại!";
-            }
+            if (response.status === 502) errorMsg = t('serverErr502');
+            else if (response.status === 504) errorMsg = t('serverErr504');
+            else if (response.status === 500) errorMsg = t('serverErr500');
           }
           throw new Error(errorMsg);
         }
 
         const data = await response.json();
-        renderResults(data);
+        window.currentResultData = data;
+        renderResults(data, true); // true = lưu vào lịch sử
       } catch (err) {
-        alert("Lỗi: " + err.message);
+        alert("Error: " + err.message);
       } finally {
         btn.disabled = false;
-        btnText.innerHTML = '<i data-lucide="sparkles"></i> Bắt Đầu Phân Tích';
+        btnText.innerHTML = `<i data-lucide="sparkles"></i> ${t('btnSubmit')}`;
         spinner.style.display = "none";
         if (window.lucide) lucide.createIcons();
       }
     }
 
-    // HIỂN THỊ KẾT QUẢ SANG CỘT PHẢI (LỌC THEO ĐÚNG NGƯỠNG CONFIDENCE)
-    function renderResults(data) {
+    // HIỂN THỊ KẾT QUẢ SANG CỘT PHẢI
+    function renderResults(data, shouldSaveHistory = false) {
+      if (!data || !loadedImage) return;
+      window.currentResultData = data;
+
       document.getElementById('empty-state').style.display = 'none';
       const resultContent = document.getElementById('result-content');
       resultContent.style.display = 'block';
@@ -831,7 +1667,6 @@ HTML_PAGE = """<!DOCTYPE html>
       const ctx = canvas.getContext('2d');
       ctx.drawImage(loadedImage, 0, 0);
 
-      // Đảm bảo chỉ hiển thị các detection thỏa mãn ngưỡng confidence hiện tại
       const currentConf = parseFloat(document.getElementById('conf-slider').value) || 0.25;
       const rawDetections = data.detections || [];
       const detections = rawDetections.filter(d => d.confidence >= currentConf);
@@ -843,22 +1678,24 @@ HTML_PAGE = """<!DOCTYPE html>
 
       if (detections.length === 0) {
         const percentText = Math.round(currentConf * 100);
-        tagsContainer.innerHTML = `<span style="color:#64748b; font-style:italic;">Không tìm thấy món ăn nào với độ tin cậy &ge; ${percentText}%. Hãy thử kéo giảm thanh Confidence!</span>`;
+        tagsContainer.innerHTML = `<span style="color:#64748b; font-style:italic;">${t('noDetection', { conf: percentText })}</span>`;
       } else {
         const colors = ['#e63946', '#2a9d8f', '#e76f51', '#457b9d', '#9b5de5', '#f4a261'];
         detections.forEach((d, idx) => {
           const color = colors[idx % colors.length];
           const b = d.box;
           const confPercent = Math.round(d.confidence * 100);
-          const vietnameseName = formatFoodName(d.class_name);
+          const viFoodName = formatFoodName(d.class_name);
+          const displayName = getDisplayName(d.class_name);
+          const emoji = getFoodEmoji(viFoodName);
 
           // Vẽ Bounding Box
           ctx.lineWidth = Math.max(3, Math.round(canvas.width / 240));
           ctx.strokeStyle = color;
           ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
 
-          // Nhãn tên món (Tiếng Việt có dấu)
-          const label = `${vietnameseName} (${confPercent}%)`;
+          // Nhãn trên Canvas
+          const label = `${viFoodName} (${confPercent}%)`;
           const fontSize = Math.max(14, Math.round(canvas.width / 36));
           ctx.font = `bold ${fontSize}px 'Plus Jakarta Sans', sans-serif`;
           const textWidth = ctx.measureText(label).width;
@@ -869,23 +1706,43 @@ HTML_PAGE = """<!DOCTYPE html>
           ctx.fillStyle = '#ffffff';
           ctx.fillText(label, b.x1 + 6, Math.max(textHeight, b.y1 - 4));
 
-          // Tag kết quả
+          // Detection Chip
           const chip = document.createElement('div');
           chip.className = 'detection-chip';
           chip.style.backgroundColor = color + '20';
           chip.style.color = color;
-          chip.innerHTML = `<i data-lucide="tag"></i> ${vietnameseName}: ${confPercent}%`;
+          chip.innerHTML = `<span>${emoji}</span> ${displayName}: ${confPercent}%`;
           tagsContainer.appendChild(chip);
         });
+
+        // LƯU VÀO LOCAL STORAGE NẾU LÀ LẦN CHẠY MỚI
+        if (shouldSaveHistory) {
+          const bestDet = detections.reduce((max, d) => d.confidence > max.confidence ? d : max, detections[0]);
+          const primaryFoodVi = formatFoodName(bestDet.class_name);
+          const primaryConfStr = (bestDet.confidence * 100).toFixed(1) + '%';
+          const allFoodsList = [...new Set(detections.map(d => formatFoodName(d.class_name)))];
+
+          const historyItem = {
+            id: 'hist_' + Date.now(),
+            primaryFood: primaryFoodVi,
+            primaryConf: primaryConfStr,
+            allFoods: allFoodsList,
+            timestamp: formatHistoryTime(new Date()),
+            thumbnail: createCompressedImage(loadedImage, 85, 0.55),
+            previewImage: createCompressedImage(loadedImage, 520, 0.65),
+            confThreshold: currentConf,
+            data: data
+          };
+          saveToHistory(historyItem);
+        }
       }
 
-      // HIỂN THỊ THẺ TRI THỨC CHO CÁC MÓN THỎA MÃN CONFIDENCE
+      // THẺ TRI THỨC ẨM THỰC
       const detectedNamesSet = new Set(detections.map(d => formatFoodName(d.class_name).toLowerCase()));
       const rawFoodsList = (data.foods_info && data.foods_info.length > 0)
         ? data.foods_info
         : (data.food_info ? [data.food_info] : []);
 
-      // Lọc thông tin món theo các món còn lại sau khi lọc confidence
       const foodsList = rawFoodsList.filter(info => {
         if (detections.length === 0) return false;
         return detectedNamesSet.has(formatFoodName(info.food_name).toLowerCase());
@@ -894,40 +1751,42 @@ HTML_PAGE = """<!DOCTYPE html>
       if (foodsList.length > 0) {
         let cardsHtml = '';
         foodsList.forEach((info, idx) => {
-          const vietnameseFoodName = formatFoodName(info.food_name);
+          const viFoodName = formatFoodName(info.food_name);
+          const displayName = getDisplayName(info.food_name);
+          const emoji = getFoodEmoji(viFoodName);
           const ingBadges = (info.ingredients || []).map(i => `<span class="ingredient-badge">${i}</span>`).join('');
 
           cardsHtml += `
             <div class="info-card" style="margin-top: ${idx === 0 ? '14px' : '20px'};">
               <div class="info-card-header">
                 <h3>
-                  <i data-lucide="soup"></i>
-                  ${vietnameseFoodName || 'Thông Tin Món Ăn'}
+                  <span>${emoji}</span>
+                  ${displayName}
                 </h3>
               </div>
               <div class="info-item">
-                <strong><i data-lucide="book-open"></i> Giới thiệu:</strong>
-                <p>${info.description || 'Chưa có thông tin.'}</p>
+                <strong><i data-lucide="book-open"></i> ${t('introLabel')}</strong>
+                <p>${info.description || t('noInfo')}</p>
               </div>
               <div class="info-item">
-                <strong><i data-lucide="map-pin"></i> Nguồn gốc & Văn hóa:</strong>
-                <p>${info.origin || 'Chưa có thông tin.'}</p>
+                <strong><i data-lucide="map-pin"></i> ${t('originLabel')}</strong>
+                <p>${info.origin || t('noInfo')}</p>
               </div>
               <div class="info-item">
-                <strong><i data-lucide="layers"></i> Nguyên liệu chính:</strong>
-                <div class="ingredients-tags">${ingBadges || 'Đang cập nhật'}</div>
+                <strong><i data-lucide="layers"></i> ${t('ingredientsLabel')}</strong>
+                <div class="ingredients-tags">${ingBadges || t('updating')}</div>
               </div>
               <div class="info-item">
-                <strong><i data-lucide="sparkles"></i> Hương vị đặc trưng:</strong>
-                <p>${info.taste || 'Đang cập nhật.'}</p>
+                <strong><i data-lucide="sparkles"></i> ${t('tasteLabel')}</strong>
+                <p>${info.taste || t('updating')}</p>
               </div>
               <div class="info-item">
-                <strong><i data-lucide="chef-hat"></i> Cách chế biến & Thưởng thức:</strong>
-                <p>${info.preparation || 'Đang cập nhật.'}</p>
+                <strong><i data-lucide="chef-hat"></i> ${t('prepLabel')}</strong>
+                <p>${info.preparation || t('updating')}</p>
               </div>
               ${info.note ? `
               <div class="info-item">
-                <strong><i data-lucide="info"></i> Lưu ý ẩm thực:</strong>
+                <strong><i data-lucide="info"></i> ${t('noteLabel')}</strong>
                 <p>${info.note}</p>
               </div>` : ''}
             </div>
@@ -938,17 +1797,12 @@ HTML_PAGE = """<!DOCTYPE html>
         infoContainer.innerHTML = `<div style="font-size:0.88rem; color:#64748b; margin-top:8px;">${data.message}</div>`;
       }
 
-      // Kích hoạt lại Lucide icons cho tất cả các thẻ vừa render
-      if (window.lucide) {
-        lucide.createIcons();
-      }
+      if (window.lucide) lucide.createIcons();
     }
   </script>
 </body>
 </html>
 """
-
-
 # ============================================================
 # ROOT ROUTE (HTML UI + JSON API COMPATIBILITY)
 # ============================================================
