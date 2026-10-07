@@ -1,7 +1,7 @@
 import json
 import os
 import re
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 try:
     from openai import OpenAI
@@ -15,7 +15,7 @@ except ImportError:
 
 
 # ============================================================
-# DANH SÁCH TOÀN BỘ MÔ HÌNH GEMINI ĐƯỢC CẤU HÌNH XOAY VÒNG
+# DANH SÁCH MÔ HÌNH GEMINI (ƯU TIÊN MÔ HÌNH NHANH & XOAY VÒNG THÔNG MINH)
 # ============================================================
 GEMINI_MODELS_POOL: List[str] = [
     # Nhóm 1: Mô hình Flash & Pro xử lý Text/JSON tối ưu nhất
@@ -48,14 +48,147 @@ GEMINI_MODELS_POOL: List[str] = [
     # Nhóm 5: Transcribe
     "gemini-3.5-transcribe",
     "gemini-3.5-transcribe-live",
+    # Nhóm dự phòng chính thức siêu tốc độ (<1.5s response)
+    "gemini-2.0-flash",
+    "gemini-1.5-flash",
 ]
+
+
+# ============================================================
+# BỘ NHỚ ĐỆM TRI THỨC ẨM THỰC (IN-MEMORY CACHE - PHẢN HỒI 0MS)
+# ============================================================
+_PRESEEDED_KNOWLEDGE: Dict[str, Dict[str, Any]] = {
+    "cơm chiên dương châu": {
+        "food_name": "Cơm chiên Dương Châu",
+        "description": "Món cơm chiên trứ danh kết hợp hài hòa giữa hạt cơm tơi xốp cùng lạp xưởng, tôm, trứng và các loại rau củ rực rỡ sắc màu.",
+        "origin": "Bắt nguồn từ vùng Dương Châu (Trung Quốc) và đã trở thành món ăn quen thuộc, rất được yêu thích trong văn hóa ẩm thực Việt Nam.",
+        "ingredients": ["Cơm nguội", "Lạp xưởng", "Tôm tươi", "Trứng gà", "Đậu Hà Lan", "Cà rốt", "Hành lá", "Tỏi phi"],
+        "taste": "Vị mặn ngọt béo bùi đan xen, hạt cơm săn giòn vàng ươm, dậy mùi thơm nức của lạp xưởng và hành tỏi.",
+        "preparation": "Xào chín tôm và lạp xưởng thái hạt lựu, sau đó cho cơm nguội vào đảo đều cùng trứng đánh tan trên lửa lớn đến khi hạt cơm săn lại.",
+        "note": "Nên dùng cơm nguội để trong ngăn mát tủ lạnh qua đêm để khi chiên hạt cơm tơi xốp, không bị nhão.",
+        "en": {
+            "food_name": "Yangzhou Fried Rice",
+            "description": "A famous savory fried rice dish tossed with seasoned eggs, Chinese sausage, shrimp, and diced colorful vegetables.",
+            "origin": "Originated in Yangzhou, China, and has become a beloved staple in Vietnamese culinary culture.",
+            "ingredients": ["Cold cooked rice", "Chinese sausage", "Shrimp", "Eggs", "Green peas", "Carrots", "Scallions"],
+            "taste": "Savory, aromatic, and rich with tender, fluffy separated rice grains.",
+            "preparation": "Sauté diced meats and vegetables, then stir-fry with chilled rice and beaten eggs over high heat until grains are firm and fragrant.",
+            "note": "Using chilled day-old rice prevents sogginess and guarantees a fluffy, separate grain texture."
+        }
+    },
+    "phở": {
+        "food_name": "Phở",
+        "description": "Quốc hồn quốc túy của ẩm thực Việt Nam với bánh phở mềm mịn, nước dùng trong vắt thanh ngọt được ninh từ xương bò cùng các loại thảo mộc quý.",
+        "origin": "Xuất phát từ miền Bắc (Nam Định và Hà Nội) từ đầu thế kỷ 20, hiện là biểu tượng ẩm thực đại diện cho Việt Nam trên toàn cầu.",
+        "ingredients": ["Bánh phở", "Xương ống bò", "Thịt bò (tái/nạm/gầu)", "Hoa hồi", "Quế chi", "Thảo quả", "Gừng nướng", "Hành hoa", "Rau mùi"],
+        "taste": "Nước dùng ngọt thanh đậm đà từ tủy xương, dậy mùi thơm thảo mộc ấm áp, hòa quyện với vị mềm ngọt của thịt bò.",
+        "preparation": "Ninh xương bò nhiều giờ cùng gia vị hồi, quế, thảo quả nướng; chần bánh phở nóng, xếp thịt bò thái mỏng lên trên rồi chan nước dùng sôi sùng sục.",
+        "note": "Thưởng thức ngay khi còn nóng hổi kèm chanh tươi, ớt hiểm, dấm tỏi và quẩy giòn để cảm nhận trọn vẹn hương vị.",
+        "en": {
+            "food_name": "Pho Noodle Soup (Phở)",
+            "description": "Vietnam's national dish consisting of delicate flat rice noodles served in a rich, clear broth simmered for hours with beef bones and fragrant spices.",
+            "origin": "Originated in Northern Vietnam (Hanoi and Nam Dinh) in the early 20th century, celebrated worldwide.",
+            "ingredients": ["Rice noodles", "Beef marrow bones", "Beef cuts (brisket/flank/sirloin)", "Star anise", "Cinnamon", "Cardamom", "Charred ginger", "Scallions", "Cilantro"],
+            "taste": "Rich yet light and clear broth with deep umami sweetness, aromatic warm spices, and tender beef.",
+            "preparation": "Simmer beef bones and charred spices for 8-12 hours; scald fresh noodles, top with sliced beef, and pour piping hot broth over.",
+            "note": "Best enjoyed steaming hot with fresh lime, chili slices, and fragrant herbs."
+        }
+    },
+    "cơm tấm": {
+        "food_name": "Cơm tấm",
+        "description": "Món ăn đặc sản Nam Bộ với hạt gạo tấm dẻo bùi, ăn kèm sườn heo nướng mật ong thơm lừng, bì dai giòn, chả trứng béo ngậy và nước mắm chua ngọt.",
+        "origin": "Đặc trưng của Sài Gòn và các tỉnh Tây Nam Bộ, từ món ăn bình dân của người lao động nay đã trở thành nét văn hóa đặc sắc.",
+        "ingredients": ["Gạo tấm", "Sườn cốt lết", "Bì heo", "Trứng gà", "Thịt băm", "Mộc nhĩ", "Mỡ hành", "Đồ chua", "Nước mắm tỏi ớt"],
+        "taste": "Thịt sườn nướng mặn ngọt đậm đà xém cạnh thơm phức, chan mỡ hành béo ngậy cùng nước mắm chua ngọt cay nhẹ kích thích vị giác.",
+        "preparation": "Nấu cơm từ gạo tấm; sườn ướp gia vị đậm đà nướng trên than hồng; chả trứng hấp chín vàng; xếp lên đĩa cùng đồ chua và rưới mỡ hành.",
+        "note": "Linh hồn của món ăn nằm ở bát nước mắm chua ngọt pha sánh kẹo với ớt băm và đồ chua củ cải cà rốt giòn sần sật.",
+        "en": {
+            "food_name": "Broken Rice (Cơm tấm)",
+            "description": "Iconic southern Vietnamese specialty made from fractured rice grains, served with charcoal-grilled pork chops, steamed egg meatloaf, shredded pork skin, and sweet fish sauce.",
+            "origin": "Originated in Saigon and Southern Vietnam, evolving from a humble workers' meal into a world-famous culinary icon.",
+            "ingredients": ["Broken rice", "Pork chops", "Shredded pork skin", "Eggs", "Minced pork", "Wood ear mushrooms", "Scallion oil", "Pickled vegetables", "Garlic chili fish sauce"],
+            "taste": "Smoky sweet-savory grilled pork with crispy caramelized edges, creamy egg meatloaf, and zesty dipping sauce.",
+            "preparation": "Steam broken rice until fluffy; grill marinated pork over charcoal embers; steam meatloaf; assemble with scallion oil and pickled daikon.",
+            "note": "The dish is defined by the sweet-savory garlic-chili dipping fish sauce."
+        }
+    },
+    "bánh mì": {
+        "food_name": "Bánh mì",
+        "description": "Bánh mì giòn rụm bên ngoài, xốp mềm bên trong, kẹp nhân pate gan béo ngậy, chả lụa, thịt nướng, đồ chua giòn ngọt và sốt đậm đà.",
+        "origin": "Giao thoa văn hóa giữa ẩm thực Pháp và khẩu vị Việt Nam, được vinh danh là một trong những món ăn đường phố ngon nhất thế giới.",
+        "ingredients": ["Vỏ bánh mì", "Pate gan", "Chả lụa", "Thịt nướng/xá xíu", "Dưa leo", "Đồ chua", "Rau mùi", "Ớt tươi", "Nước sốt đặc biệt"],
+        "taste": "Giòn rụm, béo ngậy của pate, chua ngọt sảng khoái của dưa góp và cay the ấm áp của ớt tươi.",
+        "preparation": "Nướng giòn vỏ bánh, rạch một bên sườn, phết đều pate và bơ trứng, xếp lớp thịt, giò chả, rau thơm dưa leo và rưới sốt cay ngọt.",
+        "note": "Bánh mì ngon nhất khi thưởng thức ngay lúc vừa nướng nóng giòn.",
+        "en": {
+            "food_name": "Vietnamese Baguette (Bánh mì)",
+            "description": "Crispy French-influenced baguette with airy interior, packed with savory liver pâté, Vietnamese cold cuts, pickled vegetables, and fresh herbs.",
+            "origin": "A culinary fusion born in Saigon, globally acclaimed as one of the best street sandwiches.",
+            "ingredients": ["Crispy baguette", "Liver pâté", "Vietnamese pork roll", "Grilled pork", "Cucumber", "Pickled carrots & daikon", "Cilantro", "Fresh chili", "Savory sauce"],
+            "taste": "Remarkable contrast of textures: crunchy crust, rich creamy pâté, refreshing sour pickles, and aromatic fresh herbs.",
+            "preparation": "Toast baguette until shatteringly crisp, slice lengthwise, spread rich pâté and mayonnaise, layer meats, pickles, cilantro, and chili sauce.",
+            "note": "Best eaten freshly made while the crust remains piping hot and crispy."
+        }
+    },
+    "bánh xèo": {
+        "food_name": "Bánh xèo",
+        "description": "Vỏ bánh vàng ươm mỏng giòn rụm từ bột gạo và nước cốt dừa, cuộn nhân tôm, thịt ba chỉ, giá đỗ, cuốn cùng các loại rau rừng và chấm mắm chua ngọt.",
+        "origin": "Món ăn dân dã phổ biến khắp miền Trung và miền Nam với đặc trưng tiếng 'xèo xèo' vui tai khi tráng bánh trên chảo dầu nóng.",
+        "ingredients": ["Bột gạo", "Bột nghệ", "Nước cốt dừa", "Tôm đất", "Thịt ba chỉ", "Giá đỗ", "Hành lá", "Rau cải xanh", "Rau thơm", "Nước mắm chua ngọt"],
+        "taste": "Vỏ bánh giòn rụm béo ngậy hương dừa, nhân tôm thịt ngọt tươi, ăn kèm rau xanh mát và nước chấm hài hòa không hề ngấy.",
+        "preparation": "Pha bột gạo với nghệ và nước cốt dừa; cho tôm thịt vào chảo nóng, múc bột tráng mỏng quanh chảo, rải giá đỗ lên trên và đậy nắp đến khi vỏ vàng giòn.",
+        "note": "Bánh xèo ngon nhất khi cuốn cùng lá cải xanh, rau xà lách, chấm ngập trong nước mắm tỏi ớt chua ngọt.",
+        "en": {
+            "food_name": "Crispy Vietnamese Pancake (Bánh xèo)",
+            "description": "Sizzling crispy crepe made from rice flour, turmeric, and coconut milk, stuffed with shrimp, pork belly, and bean sprouts.",
+            "origin": "Beloved folk delicacy across Central and Southern Vietnam, named after the loud sizzling sound made when batter hits the hot skillet.",
+            "ingredients": ["Rice flour", "Turmeric powder", "Coconut milk", "Fresh shrimp", "Pork belly", "Bean sprouts", "Scallions", "Mustard greens", "Fresh herbs", "Sweet-sour dipping sauce"],
+            "taste": "Super crisp exterior with delicate coconut fragrance, savory sweet shrimp and pork fillings, balanced by crisp bitter mustard leaves.",
+            "preparation": "Sauté shrimp and pork in a sizzling pan, ladle thin batter in a swirling motion, add bean sprouts, cover until crust turns golden brown and crispy.",
+            "note": "Wrap wedges in fresh mustard leaves and herbs, dip generously in garlic-lime fish sauce."
+        }
+    },
+    "bún bò huế": {
+        "food_name": "Bún bò Huế",
+        "description": "Món bún trứ danh Cố đô Huế với sợi bún to tròn, nước dùng đậm đà thơm ngát hương sả và mắm ruốc, ăn cùng bắp bò, chả cua và tiết luộc.",
+        "origin": "Đỉnh cao ẩm thực Cung đình và dân gian xứ Huế, mang hương vị nồng nàn đặc trưng của miền Trung nắng gió.",
+        "ingredients": ["Bún sợi to", "Bắp bò", "Gân bò", "Giò heo", "Chả cua", "Huyết luộc", "Sả cây", "Mắm ruốc Huế", "Hạt điều màu", "Rau hoa chuối", "Rau muống chẻ"],
+        "taste": "Vị cay nồng ấm, ngọt đậm từ tủy xương và mắm ruốc Huế, dậy mùi thơm lừng của sả phi dầu điều.",
+        "preparation": "Hầm bắp bò và giò heo với nhiều sả đập dập; nêm mắm ruốc đã lọc trong; chưng dầu điều tạo màu đỏ cam hấp dẫn; chần bún và chan nước dùng cùng rau sống.",
+        "note": "Không thể thiếu đĩa rau sống gồm hoa chuối thái mỏng, rau muống chẻ và vài lát chanh ớt cay xé lưỡi.",
+        "en": {
+            "food_name": "Hue Spicy Beef Noodles (Bún bò Huế)",
+            "description": "Renowned royal court noodle soup featuring thick round rice noodles, tender beef shank, and a fiery, lemongrass-infused broth seasoned with fermented shrimp paste.",
+            "origin": "Ancient imperial capital Hue, representing the pinnacle of Central Vietnamese royal culinary artistry.",
+            "ingredients": ["Thick rice noodles", "Beef shank", "Pork knuckle", "Crab meatball", "Congealed pork blood", "Lemongrass stalks", "Hue shrimp paste", "Annatto oil", "Banana blossoms", "Morning glory"],
+            "taste": "Bold, spicy, deeply aromatic with lemongrass fragrance, rich umami depth from fermented shrimp paste, and vibrant red chili oil.",
+            "preparation": "Simmer beef shank and pork with bruised lemongrass; season with strained shrimp paste and red annatto oil; ladle over warm noodles with fresh herbs.",
+            "note": "Serve piping hot with shredded banana blossoms, water spinach, and freshly squeezed lime."
+        }
+    }
+}
+
+# Khởi tạo bộ nhớ đệm
+_FOOD_INFO_CACHE: Dict[str, FoodInfoResponse] = {}
+for _k, _v in _PRESEEDED_KNOWLEDGE.items():
+    _FOOD_INFO_CACHE[_k] = FoodInfoResponse(
+        food_name=_v["food_name"],
+        description=_v["description"],
+        origin=_v["origin"],
+        ingredients=_v["ingredients"],
+        taste=_v["taste"],
+        preparation=_v["preparation"],
+        note=_v.get("note"),
+        model_used="cache-instant",
+        en=_v.get("en"),
+    )
 
 
 class FoodLLM:
     """
     Class chịu trách nhiệm gọi Google Gemini LLM
     với cơ chế xoay mô hình tự động (Model Fallback / Rotation) khi gặp lỗi,
-    hỗ trợ tra cứu thông tin và công thức cho một hoặc nhiều món ăn cùng lúc.
+    kết hợp In-Memory Cache giúp phản hồi tức thì và không bị nghẽn mạng.
     """
 
     def __init__(self):
@@ -91,7 +224,8 @@ class FoodLLM:
                 self.models.remove(preferred_model)
             self.models.insert(0, preferred_model)
 
-        timeout = float(os.getenv("GEMINI_TIMEOUT", "15.0"))
+        # Giảm timeout xuống 6.0s để fail-fast các mô hình không tồn tại, tránh người dùng phải chờ 60s
+        timeout = float(os.getenv("GEMINI_TIMEOUT", "6.0"))
         self.client = OpenAI(
             api_key=self.api_key,
             base_url=self.base_url,
@@ -100,10 +234,20 @@ class FoodLLM:
 
         self.current_model_idx = 0
 
+    def _promote_working_model(self, model_name: str):
+        """Đưa mô hình vừa thành công lên đầu danh sách để các request sau dùng ngay lập tức."""
+        if model_name in self.models:
+            self.models.remove(model_name)
+            self.models.insert(0, model_name)
+            self.current_model_idx = 0
+
+    def _demote_failed_model(self, model_name: str):
+        """Đẩy mô hình bị lỗi về cuối danh sách để không làm chậm các lượt gọi tiếp theo."""
+        if model_name in self.models and len(self.models) > 1:
+            self.models.remove(model_name)
+            self.models.append(model_name)
+
     def get_active_model(self) -> str:
-        """
-        Trả về model hiện đang được kích hoạt mặc định.
-        """
         if 0 <= self.current_model_idx < len(self.models):
             return self.models[self.current_model_idx]
         return self.models[0]
@@ -113,12 +257,15 @@ class FoodLLM:
         food_name: str,
     ) -> FoodInfoResponse:
         """
-        Nhận tên món ăn và gọi Gemini để lấy thông tin chi tiết.
-        Tự động xoay sang mô hình khác trong danh sách nếu mô hình hiện tại gặp lỗi.
+        Nhận tên món ăn và tra cứu thông tin chi tiết (ưu tiên cache trước).
         """
         food_name = food_name.strip()
         if not food_name:
             raise ValueError("Tên món ăn không được để trống.")
+
+        cache_key = food_name.lower()
+        if cache_key in _FOOD_INFO_CACHE:
+            return _FOOD_INFO_CACHE[cache_key]
 
         prompt = f"""
 Bạn là chuyên gia ẩm thực Việt Nam song ngữ (tiếng Việt và tiếng Anh).
@@ -190,10 +337,7 @@ Yêu cầu:
 
                 data: dict[str, Any] = json.loads(output)
 
-                self.current_model_idx = idx
-                print(f"[Gemini] Thanh cong voi model: {model_name}")
-
-                return FoodInfoResponse(
+                res = FoodInfoResponse(
                     food_name=data.get("food_name", food_name),
                     description=data.get("description", "Chưa có thông tin."),
                     origin=data.get("origin", "Chưa có thông tin."),
@@ -205,13 +349,16 @@ Yêu cầu:
                     en=data.get("en"),
                 )
 
+                self._promote_working_model(model_name)
+                _FOOD_INFO_CACHE[cache_key] = res
+                print(f"[Gemini] Thanh cong voi model: {model_name}")
+                return res
+
             except Exception as exc:
                 err_str = str(exc)
-                errors.append(f"[{model_name}]: {err_str[:120]}")
-                print(
-                    f"[Gemini Rotate] Model '{model_name}' loi ({err_str[:60]}...). "
-                    f"Dang tu dong chuyen sang model tiep theo..."
-                )
+                errors.append(f"[{model_name}]: {err_str[:100]}")
+                self._demote_failed_model(model_name)
+                print(f"[Gemini Rotate] Model '{model_name}' loi ({err_str[:50]}...). Chuyen model...")
                 continue
 
         error_summary = " | ".join(errors[-3:])
@@ -224,10 +371,9 @@ Yêu cầu:
         food_names: List[str],
     ) -> List[FoodInfoResponse]:
         """
-        Nhận danh sách nhiều món ăn (khi phát hiện 2, 3 món hoặc nhiều hơn)
-        và gọi Gemini lấy công thức, thông tin chi tiết cho TẤT CẢ các món đó.
+        Nhận danh sách nhiều món ăn và tra cứu chi tiết.
+        Tự động tận dụng Cache để trả về tức thì các món đã biết.
         """
-        # Lọc bỏ trùng lặp
         unique_names: List[str] = []
         seen = set()
         for name in food_names:
@@ -239,14 +385,31 @@ Yêu cầu:
         if not unique_names:
             return []
 
-        if len(unique_names) == 1:
-            try:
-                return [self.get_food_info(unique_names[0])]
-            except Exception:
-                return []
+        # Kiểm tra xem những món nào đã có trong Cache
+        cached_results: List[FoodInfoResponse] = []
+        uncached_names: List[str] = []
+        for name in unique_names:
+            key = name.lower()
+            if key in _FOOD_INFO_CACHE:
+                cached_results.append(_FOOD_INFO_CACHE[key])
+            else:
+                uncached_names.append(name)
 
-        # Xây dựng prompt lấy thông tin nhiều món trong 1 request
-        list_str = "\n".join([f"{i+1}. {name}" for i, name in enumerate(unique_names)])
+        # Nếu tất cả món đều đã có trong cache: Trả về ngay lập tức (0ms)!
+        if not uncached_names:
+            return cached_results
+
+        # Nếu chỉ có 1 món chưa có trong cache: Gọi get_food_info
+        if len(uncached_names) == 1:
+            try:
+                new_info = self.get_food_info(uncached_names[0])
+                cached_results.append(new_info)
+                return cached_results
+            except Exception:
+                return cached_results
+
+        # Xây dựng prompt cho các món chưa có trong cache
+        list_str = "\n".join([f"{i+1}. {name}" for i, name in enumerate(uncached_names)])
         prompt = f"""
 Bạn là chuyên gia ẩm thực Việt Nam song ngữ (tiếng Việt và tiếng Anh).
 
@@ -337,49 +500,44 @@ Yêu cầu:
                 if not isinstance(raw_data, list):
                     raise ValueError(f"Kết quả không phải mảng JSON hợp lệ: {output[:100]}")
 
-                results: List[FoodInfoResponse] = []
+                new_results: List[FoodInfoResponse] = []
                 for item in raw_data:
                     if isinstance(item, dict):
-                        results.append(
-                            FoodInfoResponse(
-                                food_name=item.get("food_name", "Món ăn"),
-                                description=item.get("description", "Chưa có thông tin."),
-                                origin=item.get("origin", "Chưa có thông tin."),
-                                ingredients=item.get("ingredients", []),
-                                taste=item.get("taste", "Chưa có thông tin."),
-                                preparation=item.get("preparation", "Chưa có thông tin."),
-                                note=item.get("note"),
-                                model_used=model_name,
-                                en=item.get("en"),
-                            )
+                        f_info = FoodInfoResponse(
+                            food_name=item.get("food_name", "Món ăn"),
+                            description=item.get("description", "Chưa có thông tin."),
+                            origin=item.get("origin", "Chưa có thông tin."),
+                            ingredients=item.get("ingredients", []),
+                            taste=item.get("taste", "Chưa có thông tin."),
+                            preparation=item.get("preparation", "Chưa có thông tin."),
+                            note=item.get("note"),
+                            model_used=model_name,
+                            en=item.get("en"),
                         )
+                        new_results.append(f_info)
+                        _FOOD_INFO_CACHE[f_info.food_name.lower()] = f_info
 
-                if results:
-                    self.current_model_idx = idx
-                    print(f"[Gemini] Thanh cong lay thong tin {len(results)} mon voi model: {model_name}")
-                    return results
+                if new_results:
+                    self._promote_working_model(model_name)
+                    print(f"[Gemini] Thanh cong lay thong tin {len(new_results)} mon voi model: {model_name}")
+                    return cached_results + new_results
 
             except Exception as exc:
                 err_str = str(exc)
-                errors.append(f"[{model_name}]: {err_str[:120]}")
-                print(
-                    f"[Gemini Rotate] Model '{model_name}' loi phan tich danh sach ({err_str[:60]}...). "
-                    f"Dang chuyen sang model tiep theo..."
-                )
+                errors.append(f"[{model_name}]: {err_str[:100]}")
+                self._demote_failed_model(model_name)
                 continue
 
-        # Nếu batch call thất bại qua các model, gọi fallback tuần tự từng món
-        print("[Gemini Fallback] Batch request that bai, thu goi tuan tu tung mon...")
-        fallback_results: List[FoodInfoResponse] = []
-        for name in unique_names:
+        # Fallback tuần tự từng món nếu batch thất bại
+        for name in uncached_names:
             try:
                 info = self.get_food_info(name)
-                fallback_results.append(info)
+                cached_results.append(info)
             except Exception as e:
                 print(f"[Gemini Fallback] Khong the lay thong tin cho '{name}': {e}")
 
-        if fallback_results:
-            return fallback_results
+        if cached_results:
+            return cached_results
 
         error_summary = " | ".join(errors[-3:])
         raise RuntimeError(

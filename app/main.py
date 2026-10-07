@@ -1539,7 +1539,7 @@ HTML_PAGE = """<!DOCTYPE html>
       reader.readAsDataURL(file);
     }
 
-    // BẮT ĐẦU PHÂN TÍCH
+    // BẮT ĐẦU PHÂN TÍCH (TIẾN TRÌNH 2 PHA TIẾT KIỆM THỜI GIAN & TĂNG TỐC TRẢI NGHIỆM)
     async function processImage() {
       if (!selectedFile) {
         alert(t('selectFileWarn'));
@@ -1549,14 +1549,13 @@ HTML_PAGE = """<!DOCTYPE html>
       const mode = document.querySelector('input[name="api-mode"]:checked').value;
       const confSlider = document.getElementById('conf-slider');
       const conf = confSlider ? parseFloat(confSlider.value) : 0.25;
-      const endpoint = mode === 'analyze' ? '/analyze' : '/predict';
 
       const btn = document.getElementById('submit-btn');
       const btnText = document.getElementById('btn-text');
       const spinner = document.getElementById('btn-spinner');
 
       btn.disabled = true;
-      btnText.innerText = t('btnProcessing');
+      btnText.innerText = (currentLang === 'vi' ? 'Đang nhận diện món...' : 'Detecting dishes...');
       spinner.style.display = "inline-block";
 
       const formData = new FormData();
@@ -1564,6 +1563,36 @@ HTML_PAGE = """<!DOCTYPE html>
       formData.append('confidence', conf);
 
       try {
+        // PHA 1: NẾU CHẾ ĐỘ PHÂN TÍCH, GỌI /predict ĐỂ VẼ BOUNDING BOX NGAY TRONG 1S
+        if (mode === 'analyze') {
+          try {
+            const predResp = await fetch('/predict', { method: 'POST', body: formData });
+            if (predResp.ok) {
+              const predData = await predResp.json();
+              renderResults(predData, false);
+
+              const validDets = (predData.detections || []).filter(d => d.confidence >= conf);
+              if (validDets.length > 0) {
+                const infoContainer = document.getElementById('culinary-info-container');
+                if (infoContainer) {
+                  const loadMsg = currentLang === 'vi' ? 'Đang trích xuất tri thức ẩm thực chuyên sâu...' : 'Extracting culinary knowledge...';
+                  infoContainer.innerHTML = `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:24px; text-align:center; margin-top:14px;">
+                      <div class="spinner" style="border-top-color:var(--primary); width:26px; height:26px; margin:0 auto 10px;"></div>
+                      <p style="font-size:0.92rem; font-weight:600; color:#334155;">${loadMsg}</p>
+                    </div>
+                  `;
+                }
+              }
+            }
+          } catch (predErr) {
+            console.warn("Fast predict warning:", predErr);
+          }
+          btnText.innerText = (currentLang === 'vi' ? 'Đang trích xuất tri thức...' : 'Extracting knowledge...');
+        }
+
+        // PHA 2: GỌI ANALYZE ĐỂ LẤY TOÀN BỘ TRI THỨC VÀ CÔNG THỨC
+        const endpoint = mode === 'analyze' ? '/analyze' : '/predict';
         const response = await fetch(endpoint, {
           method: 'POST',
           body: formData
