@@ -121,26 +121,35 @@ class FoodLLM:
             raise ValueError("Tên món ăn không được để trống.")
 
         prompt = f"""
-Bạn là chuyên gia ẩm thực Việt Nam.
+Bạn là chuyên gia ẩm thực Việt Nam song ngữ (tiếng Việt và tiếng Anh).
 
 Hãy cung cấp thông tin và công thức chế biến về món ăn sau:
 {food_name}
 
-Trả lời bằng JSON hợp lệ duy nhất với đúng cấu trúc sau (không kèm văn bản khác ngoài JSON):
+Trả lời bằng JSON hợp lệ duy nhất với đúng cấu trúc song ngữ sau (không kèm văn bản khác ngoài JSON):
 {{
     "food_name": "{food_name}",
-    "description": "...",
-    "origin": "...",
-    "ingredients": ["...", "..."],
-    "taste": "...",
-    "preparation": "...",
-    "note": "..."
+    "description": "Mô tả tiếng Việt...",
+    "origin": "Nguồn gốc, văn hóa tiếng Việt...",
+    "ingredients": ["Nguyên liệu 1", "Nguyên liệu 2"],
+    "taste": "Hương vị tiếng Việt...",
+    "preparation": "Cách chế biến tiếng Việt...",
+    "note": "Lưu ý tiếng Việt...",
+    "en": {{
+        "food_name": "English name of the dish",
+        "description": "English description...",
+        "origin": "English origin & cultural background...",
+        "ingredients": ["English ingredient 1", "English ingredient 2"],
+        "taste": "English flavor profile...",
+        "preparation": "English preparation and cooking instructions...",
+        "note": "English culinary tips/notes..."
+    }}
 }}
 
 Yêu cầu:
-- Viết bằng tiếng Việt chuẩn.
-- Nội dung súc tích, hấp dẫn, dễ hiểu.
-- ingredients phải là một danh sách (mảng) các nguyên liệu chính.
+- Phần tiếng Việt viết chuẩn ngữ pháp, súc tích.
+- Phần "en" viết bằng tiếng Anh chuẩn, tự nhiên.
+- ingredients và en.ingredients phải là danh sách các nguyên liệu chính.
 - Chỉ trả về chuỗi JSON thuần túy, không định dạng markdown.
 """
 
@@ -193,6 +202,7 @@ Yêu cầu:
                     preparation=data.get("preparation", "Chưa có thông tin."),
                     note=data.get("note"),
                     model_used=model_name,
+                    en=data.get("en"),
                 )
 
             except Exception as exc:
@@ -238,28 +248,38 @@ Yêu cầu:
         # Xây dựng prompt lấy thông tin nhiều món trong 1 request
         list_str = "\n".join([f"{i+1}. {name}" for i, name in enumerate(unique_names)])
         prompt = f"""
-Bạn là chuyên gia ẩm thực Việt Nam.
+Bạn là chuyên gia ẩm thực Việt Nam song ngữ (tiếng Việt và tiếng Anh).
 
 Hãy cung cấp thông tin chi tiết và công thức chế biến cho từng món ăn trong danh sách sau:
 {list_str}
 
-Trả lời bằng một mảng JSON (JSON array) hợp lệ duy nhất, mỗi phần tử tương ứng với một món ăn theo đúng cấu trúc sau:
+Trả lời bằng một mảng JSON (JSON array) hợp lệ duy nhất, mỗi phần tử tương ứng với một món ăn theo đúng cấu trúc song ngữ sau:
 [
   {{
-    "food_name": "Tên món ăn",
-    "description": "Mô tả ngắn gọn về món ăn...",
-    "origin": "Nguồn gốc, xuất xứ, nét văn hóa...",
-    "ingredients": ["Nguyên liệu 1", "Nguyên liệu 2", "..."],
-    "taste": "Hương vị đặc trưng...",
-    "preparation": "Cách chế biến và thưởng thức...",
-    "note": "Lưu ý hoặc mẹo khi nấu/ăn (nếu có)..."
+    "food_name": "Tên món ăn tiếng Việt",
+    "description": "Mô tả tiếng Việt ngắn gọn...",
+    "origin": "Nguồn gốc, văn hóa tiếng Việt...",
+    "ingredients": ["Nguyên liệu tiếng Việt 1", "Nguyên liệu tiếng Việt 2"],
+    "taste": "Hương vị tiếng Việt...",
+    "preparation": "Cách chế biến tiếng Việt...",
+    "note": "Lưu ý tiếng Việt...",
+    "en": {{
+      "food_name": "English name (Vietnamese name)",
+      "description": "English concise description...",
+      "origin": "English origin & culture...",
+      "ingredients": ["English ingredient 1", "English ingredient 2"],
+      "taste": "English flavor profile...",
+      "preparation": "English preparation and cooking...",
+      "note": "English notes/tips..."
+    }}
   }}
 ]
 
 Yêu cầu:
-- Viết bằng tiếng Việt chuẩn.
 - Bắt buộc trả về đầy đủ thông tin cho tất cả các món ăn trong danh sách trên.
-- ingredients phải là một danh sách các nguyên liệu chính.
+- Phần tiếng Việt viết chuẩn ngữ pháp, súc tích.
+- Phần "en" viết bằng tiếng Anh chuẩn, tự nhiên.
+- ingredients và en.ingredients phải là danh sách các nguyên liệu chính.
 - Chỉ trả về chuỗi JSON thuần túy, không định dạng markdown.
 """
 
@@ -330,6 +350,7 @@ Yêu cầu:
                                 preparation=item.get("preparation", "Chưa có thông tin."),
                                 note=item.get("note"),
                                 model_used=model_name,
+                                en=item.get("en"),
                             )
                         )
 

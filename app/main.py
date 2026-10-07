@@ -234,13 +234,6 @@ HTML_PAGE = """<!DOCTYPE html>
       stroke-width: 2.2;
     }
 
-    .header-icon {
-      width: 28px;
-      height: 28px;
-      vertical-align: -5px;
-      color: var(--primary);
-    }
-
     .upload-icon {
       width: 44px;
       height: 44px;
@@ -260,8 +253,7 @@ HTML_PAGE = """<!DOCTYPE html>
     /* HEADER & LANGUAGE SWITCHER */
     header {
       text-align: center;
-      margin-bottom: 28px;
-      position: relative;
+      margin-bottom: 24px;
     }
 
     header h1 {
@@ -271,14 +263,7 @@ HTML_PAGE = """<!DOCTYPE html>
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
       letter-spacing: -0.02em;
-    }
-
-    header p {
-      color: var(--text-muted);
-      margin-top: 6px;
-      font-size: 1rem;
     }
 
     .lang-switch-wrap {
@@ -300,7 +285,7 @@ HTML_PAGE = """<!DOCTYPE html>
     .lang-btn {
       background: transparent;
       border: none;
-      padding: 6px 14px;
+      padding: 6px 16px;
       border-radius: 20px;
       font-size: 0.84rem;
       font-weight: 600;
@@ -308,7 +293,6 @@ HTML_PAGE = """<!DOCTYPE html>
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
       transition: all 0.2s;
       font-family: inherit;
     }
@@ -549,7 +533,6 @@ HTML_PAGE = """<!DOCTYPE html>
       font-size: 0.88rem;
       display: inline-flex;
       align-items: center;
-      gap: 6px;
     }
 
     /* CULINARY KNOWLEDGE CARDS */
@@ -576,7 +559,6 @@ HTML_PAGE = """<!DOCTYPE html>
       color: #0f172a;
       display: flex;
       align-items: center;
-      gap: 8px;
     }
 
     .info-item {
@@ -676,7 +658,6 @@ HTML_PAGE = """<!DOCTYPE html>
       color: #1e293b;
       display: inline-flex;
       align-items: center;
-      gap: 5px;
     }
 
     .stat-empty {
@@ -785,9 +766,6 @@ HTML_PAGE = """<!DOCTYPE html>
       font-size: 1.02rem;
       font-weight: 700;
       color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 6px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -905,19 +883,17 @@ HTML_PAGE = """<!DOCTYPE html>
   <div class="container">
     <header>
       <h1>
-        <i data-lucide="utensils" class="header-icon"></i>
         <span data-i18n="appTitle">Nhận Diện & Phân Tích Món Ăn Việt Nam</span>
       </h1>
-      <p data-i18n="appSubtitle">Hệ thống Thị giác máy tính nhận diện thị giác kết hợp Trí tuệ nhân tạo phân tích ẩm thực chuyên sâu</p>
       
       <!-- BỘ CHUYỂN ĐỔI NGÔN NGỮ (VI / EN) -->
       <div class="lang-switch-wrap">
         <div class="lang-switch">
           <button type="button" class="lang-btn active" id="btn-lang-vi" onclick="setLanguage('vi')">
-            <span>🇻🇳 Tiếng Việt</span>
+            Tiếng Việt
           </button>
           <button type="button" class="lang-btn" id="btn-lang-en" onclick="setLanguage('en')">
-            <span>🇬🇧 English</span>
+            English
           </button>
         </div>
       </div>
@@ -975,9 +951,7 @@ HTML_PAGE = """<!DOCTYPE html>
           </div>
 
           <button class="btn-submit" id="submit-btn" onclick="processImage()">
-            <span id="btn-text">
-              <i data-lucide="sparkles"></i> <span data-i18n="btnSubmit">Bắt Đầu Phân Tích</span>
-            </span>
+            <span id="btn-text" data-i18n="btnSubmit">Bắt Đầu Phân Tích</span>
             <div class="spinner" id="btn-spinner" style="display:none;"></div>
           </button>
         </div>
@@ -1060,7 +1034,6 @@ HTML_PAGE = """<!DOCTYPE html>
     const TRANSLATIONS = {
       vi: {
         appTitle: "Nhận Diện & Phân Tích Món Ăn Việt Nam",
-        appSubtitle: "Hệ thống Thị giác máy tính nhận diện thị giác kết hợp Trí tuệ nhân tạo phân tích ẩm thực chuyên sâu",
         step1Title: "1. Tải Ảnh Đầu Vào",
         uploadTitle: "Bấm để chọn ảnh",
         uploadOrDrag: "hoặc kéo thả file vào đây",
@@ -1102,7 +1075,6 @@ HTML_PAGE = """<!DOCTYPE html>
       },
       en: {
         appTitle: "Vietnamese Food Recognition & Analysis",
-        appSubtitle: "Computer Vision object detection combined with AI-powered Culinary Knowledge System",
         step1Title: "1. Upload Input Image",
         uploadTitle: "Click to choose an image",
         uploadOrDrag: "or drag & drop file here",
@@ -1243,23 +1215,6 @@ HTML_PAGE = """<!DOCTYPE html>
       'Súp cua': 'Crab Asparagus Soup'
     };
 
-    // BẢNG EMOJI MÓN ĂN
-    const FOOD_EMOJIS = {
-      'Phở': '🍜', 'Pho': '🍜', 'Bún': '🍜', 'Bun': '🍜', 'Bún bò Huế': '🍜',
-      'Bún chả': '🍜', 'Bún đậu': '🥢', 'Bún mắm': '🍜', 'Bún riêu': '🍜',
-      'Bánh canh': '🍜', 'Hủ tiếu': '🍜', 'Mì': '🍜', 'Mì Quảng': '🍜',
-      'Cháo lòng': '🥣', 'Súp cua': '🥣', 'Canh': '🥣',
-      'Bánh xèo': '🥞', 'Bánh khọt': '🥞', 'Bánh cuốn': '🥞', 'Bánh bèo': '🥞',
-      'Bánh mì': '🥖', 'Cơm': '🍚', 'Cơm tấm': '🍚', 'Cơm chiên gà': '🍚',
-      'Cơm chiên Dương Châu': '🍚', 'Xôi': '🍙',
-      'Bò kho': '🍲', 'Thịt kho': '🍲', 'Lẩu': '🍲',
-      'Gỏi cuốn': '🥢', 'Chả giò': '🥢', 'Bánh tráng': '🫓', 'Bánh tráng trộn': '🥗',
-      'Thịt bò': '🥩', 'Bò lá lốt': '🥩', 'Thịt heo': '🥩', 'Thịt nướng': '🥩', 'Heo quay': '🥩',
-      'Thịt gà': '🍗', 'Cá': '🐟', 'Tôm': '🦐', 'Cua': '🦀', 'Ốc': '🐚', 'Mực': '🦑',
-      'Trứng': '🍳', 'Đậu hũ': '🧈', 'Rau': '🥗', 'Salad': '🥗', 'Nộm hoa chuối': '🥗',
-      'Khoai tây chiên': '🍟', 'Hamburger': '🍔'
-    };
-
     function formatFoodName(name) {
       if (!name) return '';
       const clean = name.trim();
@@ -1272,16 +1227,6 @@ HTML_PAGE = """<!DOCTYPE html>
         return FOOD_NAMES_EN[vi];
       }
       return vi;
-    }
-
-    function getFoodEmoji(name) {
-      if (!name) return '🍲';
-      const clean = name.trim();
-      if (FOOD_EMOJIS[clean]) return FOOD_EMOJIS[clean];
-      for (const [key, emoji] of Object.entries(FOOD_EMOJIS)) {
-        if (clean.toLowerCase().includes(key.toLowerCase())) return emoji;
-      }
-      return '🍲';
     }
 
     // ĐỔI NGÔN NGỮ
@@ -1309,7 +1254,7 @@ HTML_PAGE = """<!DOCTYPE html>
         }
       });
 
-      // Nếu đang có kết quả hiển thị, re-render để cập nhật nhãn
+      // Nếu đang có kết quả hiển thị, re-render để cập nhật nhãn và nội dung
       if (window.currentResultData) {
         renderResults(window.currentResultData, false);
       }
@@ -1470,7 +1415,7 @@ HTML_PAGE = """<!DOCTYPE html>
       if (countBadge) countBadge.innerText = list.length;
       if (totalCount) totalCount.innerText = list.length;
 
-      // Cập nhật thống kê món gần đây
+      // Cập nhật thống kê món gần đây (không dùng emoji)
       if (recentContainer) {
         if (list.length === 0) {
           recentContainer.innerHTML = `<span class="stat-empty">${t('statsNone')}</span>`;
@@ -1490,14 +1435,13 @@ HTML_PAGE = """<!DOCTYPE html>
           }
 
           recentContainer.innerHTML = recentFoods.map(f => {
-            const emoji = getFoodEmoji(f);
             const dName = getDisplayName(f);
-            return `<span class="recent-food-badge">${emoji} ${dName}</span>`;
+            return `<span class="recent-food-badge">${dName}</span>`;
           }).join('');
         }
       }
 
-      // Cập nhật danh sách lịch sử
+      // Cập nhật danh sách lịch sử (không dùng emoji)
       if (historyContainer) {
         if (list.length === 0) {
           historyContainer.innerHTML = `
@@ -1509,7 +1453,6 @@ HTML_PAGE = """<!DOCTYPE html>
         } else {
           let html = '';
           list.forEach(item => {
-            const emoji = getFoodEmoji(item.primaryFood);
             const foodName = getDisplayName(item.primaryFood);
             const viewText = t('viewDetail');
             const delText = t('deleteItem');
@@ -1520,7 +1463,7 @@ HTML_PAGE = """<!DOCTYPE html>
                   <img src="${item.thumbnail}" class="history-thumb" alt="${foodName}">
                   <div class="history-details">
                     <div class="history-food-title">
-                      <span>${emoji}</span> <span>${foodName}</span>
+                      <span>${foodName}</span>
                     </div>
                     <div class="history-meta-row">
                       <span class="history-conf-tag">${item.primaryConf}</span>
@@ -1613,7 +1556,7 @@ HTML_PAGE = """<!DOCTYPE html>
       const spinner = document.getElementById('btn-spinner');
 
       btn.disabled = true;
-      btnText.innerHTML = t('btnProcessing');
+      btnText.innerText = t('btnProcessing');
       spinner.style.display = "inline-block";
 
       const formData = new FormData();
@@ -1646,7 +1589,7 @@ HTML_PAGE = """<!DOCTYPE html>
         alert("Error: " + err.message);
       } finally {
         btn.disabled = false;
-        btnText.innerHTML = `<i data-lucide="sparkles"></i> ${t('btnSubmit')}`;
+        btnText.innerText = t('btnSubmit');
         spinner.style.display = "none";
         if (window.lucide) lucide.createIcons();
       }
@@ -1685,17 +1628,15 @@ HTML_PAGE = """<!DOCTYPE html>
           const color = colors[idx % colors.length];
           const b = d.box;
           const confPercent = Math.round(d.confidence * 100);
-          const viFoodName = formatFoodName(d.class_name);
           const displayName = getDisplayName(d.class_name);
-          const emoji = getFoodEmoji(viFoodName);
 
           // Vẽ Bounding Box
           ctx.lineWidth = Math.max(3, Math.round(canvas.width / 240));
           ctx.strokeStyle = color;
           ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
 
-          // Nhãn trên Canvas
-          const label = `${viFoodName} (${confPercent}%)`;
+          // Nhãn trên Canvas (theo ngôn ngữ đã chọn)
+          const label = `${displayName} (${confPercent}%)`;
           const fontSize = Math.max(14, Math.round(canvas.width / 36));
           ctx.font = `bold ${fontSize}px 'Plus Jakarta Sans', sans-serif`;
           const textWidth = ctx.measureText(label).width;
@@ -1706,12 +1647,12 @@ HTML_PAGE = """<!DOCTYPE html>
           ctx.fillStyle = '#ffffff';
           ctx.fillText(label, b.x1 + 6, Math.max(textHeight, b.y1 - 4));
 
-          // Detection Chip
+          // Detection Chip (không có icon emoji)
           const chip = document.createElement('div');
           chip.className = 'detection-chip';
           chip.style.backgroundColor = color + '20';
           chip.style.color = color;
-          chip.innerHTML = `<span>${emoji}</span> ${displayName}: ${confPercent}%`;
+          chip.innerText = `${displayName}: ${confPercent}%`;
           tagsContainer.appendChild(chip);
         });
 
@@ -1737,7 +1678,7 @@ HTML_PAGE = """<!DOCTYPE html>
         }
       }
 
-      // THẺ TRI THỨC ẨM THỰC
+      // THẺ TRI THỨC ẨM THỰC (CHUYỂN TOÀN BỘ NỘI DUNG SANG TIẾNG ANH KHI CHỌN ENGLISH)
       const detectedNamesSet = new Set(detections.map(d => formatFoodName(d.class_name).toLowerCase()));
       const rawFoodsList = (data.foods_info && data.foods_info.length > 0)
         ? data.foods_info
@@ -1751,26 +1692,34 @@ HTML_PAGE = """<!DOCTYPE html>
       if (foodsList.length > 0) {
         let cardsHtml = '';
         foodsList.forEach((info, idx) => {
-          const viFoodName = formatFoodName(info.food_name);
           const displayName = getDisplayName(info.food_name);
-          const emoji = getFoodEmoji(viFoodName);
-          const ingBadges = (info.ingredients || []).map(i => `<span class="ingredient-badge">${i}</span>`).join('');
+          const isEn = (currentLang === 'en');
+          const enInfo = (info.en && typeof info.en === 'object') ? info.en : null;
+
+          // Nội dung chi tiết: tiếng Anh nếu chọn English và có trường en, ngược lại tiếng Việt
+          const descText = (isEn && enInfo && enInfo.description) ? enInfo.description : (info.description || t('noInfo'));
+          const originText = (isEn && enInfo && enInfo.origin) ? enInfo.origin : (info.origin || t('noInfo'));
+          const rawIngredients = (isEn && enInfo && Array.isArray(enInfo.ingredients) && enInfo.ingredients.length > 0)
+            ? enInfo.ingredients
+            : (info.ingredients || []);
+          const tasteText = (isEn && enInfo && enInfo.taste) ? enInfo.taste : (info.taste || t('updating'));
+          const prepText = (isEn && enInfo && enInfo.preparation) ? enInfo.preparation : (info.preparation || t('updating'));
+          const noteText = (isEn && enInfo && enInfo.note) ? enInfo.note : (info.note || '');
+
+          const ingBadges = rawIngredients.map(i => `<span class="ingredient-badge">${i}</span>`).join('');
 
           cardsHtml += `
             <div class="info-card" style="margin-top: ${idx === 0 ? '14px' : '20px'};">
               <div class="info-card-header">
-                <h3>
-                  <span>${emoji}</span>
-                  ${displayName}
-                </h3>
+                <h3>${displayName}</h3>
               </div>
               <div class="info-item">
                 <strong><i data-lucide="book-open"></i> ${t('introLabel')}</strong>
-                <p>${info.description || t('noInfo')}</p>
+                <p>${descText}</p>
               </div>
               <div class="info-item">
                 <strong><i data-lucide="map-pin"></i> ${t('originLabel')}</strong>
-                <p>${info.origin || t('noInfo')}</p>
+                <p>${originText}</p>
               </div>
               <div class="info-item">
                 <strong><i data-lucide="layers"></i> ${t('ingredientsLabel')}</strong>
@@ -1778,16 +1727,16 @@ HTML_PAGE = """<!DOCTYPE html>
               </div>
               <div class="info-item">
                 <strong><i data-lucide="sparkles"></i> ${t('tasteLabel')}</strong>
-                <p>${info.taste || t('updating')}</p>
+                <p>${tasteText}</p>
               </div>
               <div class="info-item">
                 <strong><i data-lucide="chef-hat"></i> ${t('prepLabel')}</strong>
-                <p>${info.preparation || t('updating')}</p>
+                <p>${prepText}</p>
               </div>
-              ${info.note ? `
+              ${noteText ? `
               <div class="info-item">
                 <strong><i data-lucide="info"></i> ${t('noteLabel')}</strong>
-                <p>${info.note}</p>
+                <p>${noteText}</p>
               </div>` : ''}
             </div>
           `;

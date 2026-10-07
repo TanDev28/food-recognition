@@ -35,6 +35,7 @@ class FoodInfoResponse(BaseModel):
     preparation: str
     note: Optional[str] = None
     model_used: Optional[str] = None
+    en: Optional[dict] = None
 
 
 class AnalyzeResponse(BaseModel):
