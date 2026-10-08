@@ -15,42 +15,16 @@ except ImportError:
 
 
 # ============================================================
-# DANH SÁCH MÔ HÌNH GEMINI (ƯU TIÊN MÔ HÌNH NHANH & XOAY VÒNG THÔNG MINH)
+# DANH SÁCH MÔ HÌNH GEMINI (ƯU TIÊN MÔ HÌNH CHÍNH THỨC SIÊU TỐC <1S)
 # ============================================================
 GEMINI_MODELS_POOL: List[str] = [
-    # Nhóm 1: Mô hình Flash & Pro xử lý Text/JSON tối ưu nhất
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-    "gemini-3.6-flash",
-    "gemini-3.5-flash",
-    "gemini-2.5-flash",
-    "gemini-3.5-flash-lite",
-    "gemini-3.1-flash-lite",
-    "gemini-3.1-pro-preview",
-    "gemini-3-flash-preview",
-    "gemini-omni-1.1-flash",
-    # Nhóm 2: Live, Extended Thinking, Multimodal
-    "gemini-3.8-live-extended-thinking",
-    "gemini-3.8-live",
-    "gemini-3.1-flash-live-preview",
-    "gemini-2.5-flash-native-audio-preview-12-2025",
-    "gemini-3.5-live-translate-preview",
-    # Nhóm 3: Image (Nano Banana series)
-    "gemini-3.1-flash-image",
-    "gemini-3.1-flash-lite-image",
-    "gemini-3-pro-image",
-    "gemini-2.5-flash-image",
-    # Nhóm 4: TTS & Speech
-    "gemini-3.8-flash-tts",
-    "gemini-3.8-flash-lite-tts",
-    "gemini-3.1-flash-tts-preview",
-    "gemini-2.5-flash-preview-tts",
-    # Nhóm 5: Transcribe
-    "gemini-3.5-transcribe",
-    "gemini-3.5-transcribe-live",
-    # Nhóm dự phòng chính thức siêu tốc độ (<1.5s response)
+    # Các mô hình chính thức siêu tốc của Google (phản hồi <1s, chuẩn định dạng JSON)
     "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
     "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+    "gemini-3.1-flash-lite",
+    "gemini-1.5-pro",
 ]
 
 

@@ -13,7 +13,7 @@ APP_DIR = Path(__file__).resolve().parent
 if str(APP_DIR) not in sys.path:
     sys.path.insert(0, str(APP_DIR))
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 from PIL import Image, ImageOps
 
@@ -1074,6 +1074,7 @@ HTML_PAGE = """<!DOCTYPE html>
         updating: "Đang cập nhật...",
         noInfo: "Chưa có thông tin.",
         selectFileWarn: "Vui lòng chọn một bức ảnh trước!",
+        serverErrNetwork: "Không thể kết nối đến máy chủ (máy chủ đang khởi động lại hoặc mạng gián đoạn). Vui lòng đợi 15-30 giây và thử lại!",
         serverErr502: "Máy chủ đang thức dậy từ chế độ ngủ hoặc tạm quá tải (502 Bad Gateway). Vui lòng đợi 15-30 giây và nhấn thử lại!",
         serverErr504: "Thời gian xử lý quá lâu (504 Gateway Timeout). Vui lòng thử lại với ảnh dung lượng nhỏ hơn!",
         serverErr500: "Máy chủ gặp sự cố nội bộ khi xử lý (500). Vui lòng thử lại!"
@@ -1115,6 +1116,7 @@ HTML_PAGE = """<!DOCTYPE html>
         updating: "Updating...",
         noInfo: "No information available.",
         selectFileWarn: "Please select an image first!",
+        serverErrNetwork: "Cannot connect to server (server may be waking up or updating). Please wait 15-30 seconds and retry!",
         serverErr502: "Server is waking up from sleep or temporarily overloaded (502 Bad Gateway). Please wait 15-30 seconds and retry!",
         serverErr504: "Processing took too long (504 Gateway Timeout). Please retry with a smaller image!",
         serverErr500: "Server encountered an internal error (500). Please retry!"
@@ -1628,7 +1630,12 @@ HTML_PAGE = """<!DOCTYPE html>
         window.currentResultData = data;
         renderResults(data, true); // true = lưu vào lịch sử
       } catch (err) {
-        alert("Error: " + err.message);
+        let errMsg = err.message || "";
+        if (errMsg.includes("Failed to fetch") || errMsg.includes("NetworkError")) {
+          alert(t('serverErrNetwork'));
+        } else {
+          alert("Error: " + errMsg);
+        }
       } finally {
         btn.disabled = false;
         btnText.innerText = t('btnSubmit');
@@ -1824,12 +1831,15 @@ HTML_PAGE = """<!DOCTYPE html>
 # ROOT ROUTE (HTML UI + JSON API COMPATIBILITY)
 # ============================================================
 
-@app.get("/", response_class=HTMLResponse)
+@app.api_route("/", methods=["GET", "HEAD"], response_class=HTMLResponse)
 def root(request: Request):
     """
     Trả về Web UI trực quan nếu truy cập từ trình duyệt,
-    hoặc JSON nếu gọi từ API client.
+    hoặc JSON nếu gọi từ API client, hỗ trợ HEAD cho Render Health Check.
     """
+    if request.method == "HEAD":
+        return Response(status_code=200)
+
     accept = request.headers.get("accept", "")
     if "application/json" in accept and "text/html" not in accept:
         return JSONResponse(
@@ -1847,8 +1857,11 @@ def root(request: Request):
 # HEALTH CHECK
 # ============================================================
 
-@app.get("/health")
-def health():
+@app.api_route("/health", methods=["GET", "HEAD"])
+def health(request: Request):
+    if request.method == "HEAD":
+        return Response(status_code=200)
+
     active_det = get_detector()
     active_llm = get_llm()
     return {
