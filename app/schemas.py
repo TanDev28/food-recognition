@@ -28,6 +28,10 @@ class FoodInfoRequest(BaseModel):
     food_name: str
 
 
+class FoodsInfoRequest(BaseModel):
+    food_names: List[str]
+
+
 class FoodInfoResponse(BaseModel):
     food_name: str
     description: str

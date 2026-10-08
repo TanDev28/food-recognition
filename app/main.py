@@ -1,3 +1,4 @@
+import gc
 import io
 import os
 import sys
@@ -24,6 +25,7 @@ try:
         AnalyzeResponse,
         FoodInfoRequest,
         FoodInfoResponse,
+        FoodsInfoRequest,
         PredictResponse,
     )
 except ImportError:
@@ -33,6 +35,7 @@ except ImportError:
         AnalyzeResponse,
         FoodInfoRequest,
         FoodInfoResponse,
+        FoodsInfoRequest,
         PredictResponse,
     )
 
@@ -173,11 +176,13 @@ async def read_image(file: UploadFile) -> tuple[Image.Image, tuple[int, int]]:
 
         orig_size = image.size  # (orig_w, orig_h) kích thước thực tế sau khi đã chuẩn hóa EXIF
 
-        # Giữ độ phân giải sắc nét (max 2048px) cho chi tiết hạt cơm và thức ăn, vẫn kiểm soát RAM an toàn
-        max_dim = 2048
+        # Giữ độ phân giải sắc nét (max 1600px) cho chi tiết hạt cơm và thức ăn, kiểm soát RAM cực kỳ an toàn
+        max_dim = 1600
         if max(image.size) > max_dim:
             image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
+        del content, raw_image
+        gc.collect()
         return image, orig_size
     except Exception as exc:
         raise HTTPException(
@@ -1546,7 +1551,54 @@ HTML_PAGE = """<!DOCTYPE html>
       reader.readAsDataURL(file);
     }
 
-    // BẮT ĐẦU PHÂN TÍCH (TIẾN TRÌNH 2 PHA TIẾT KIỆM THỜI GIAN & TĂNG TỐC TRẢI NGHIỆM)
+    // TỰ ĐỘNG TỐI ƯU KÍCH THƯỚC ẢNH TRƯỚC KHI GỬI (CHỐNG NGHẼN MẠNG VÀ TRÀN RAM TRÊN ĐIỆN THOẠI)
+    async function prepareUploadFile(file, maxDim = 1600) {
+      if (!file || file.size < 800 * 1024) {
+        return file;
+      }
+      return new Promise((resolve) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          let w = img.naturalWidth;
+          let h = img.naturalHeight;
+          if (w <= maxDim && h <= maxDim) {
+            resolve(file);
+            return;
+          }
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            if (blob && blob.size < file.size) {
+              const lastDot = file.name.lastIndexOf('.');
+              const baseName = lastDot > 0 ? file.name.substring(0, lastDot) : file.name;
+              const compressed = new File([blob], baseName + ".jpg", { type: 'image/jpeg' });
+              resolve(compressed);
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', 0.88);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(file);
+        };
+        img.src = url;
+      });
+    }
+
+    // BẮT ĐẦU PHÂN TÍCH (TIẾN TRÌNH TỐI ƯU SIÊU TỐC, KHÔNG TRUYỀN ẢNH 2 LẦN)
     async function processImage() {
       if (!selectedFile) {
         alert(t('selectFileWarn'));
@@ -1555,7 +1607,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
       const mode = document.querySelector('input[name="api-mode"]:checked').value;
       const confSlider = document.getElementById('conf-slider');
-      const conf = confSlider ? parseFloat(confSlider.value) : 0.25;
+      const conf = confSlider ? parseFloat(confSlider.value) : 0.20;
 
       const btn = document.getElementById('submit-btn');
       const btnText = document.getElementById('btn-text');
@@ -1565,70 +1617,77 @@ HTML_PAGE = """<!DOCTYPE html>
       btnText.innerText = (currentLang === 'vi' ? 'Đang nhận diện món...' : 'Detecting dishes...');
       spinner.style.display = "inline-block";
 
-      const formData = new FormData();
-      formData.append('file', selectedFile);
-      formData.append('confidence', conf);
-
       try {
-        // PHA 1: NẾU CHẾ ĐỘ PHÂN TÍCH, GỌI /predict ĐỂ VẼ BOUNDING BOX NGAY TRONG 1S
-        if (mode === 'analyze') {
-          let shouldContinueToAnalyze = true;
+        // Tối ưu ảnh điện thoại (nếu ảnh quá lớn > 1600px) để giảm từ 8MB xuống ~300KB
+        const fileToUpload = await prepareUploadFile(selectedFile);
+        const formData = new FormData();
+        formData.append('file', fileToUpload);
+        formData.append('confidence', conf);
+
+        // PHA 1: CHỈ GỌI /predict ĐỂ CHẠY YOLO VÀ VẼ BOUNDING BOX NGAY TRONG < 1S
+        const predResp = await fetch('/predict', { method: 'POST', body: formData });
+        if (!predResp.ok) {
+          let errorMsg = `Server error (${predResp.status})`;
           try {
-            const predResp = await fetch('/predict', { method: 'POST', body: formData });
-            if (predResp.ok) {
-              const predData = await predResp.json();
-              renderResults(predData, false);
-
-              const validDets = (predData.detections || []).filter(d => d.confidence >= conf);
-              if (validDets.length > 0) {
-                const infoContainer = document.getElementById('culinary-info-container');
-                if (infoContainer) {
-                  const loadMsg = currentLang === 'vi' ? 'Đang trích xuất tri thức ẩm thực chuyên sâu...' : 'Extracting culinary knowledge...';
-                  infoContainer.innerHTML = `
-                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:24px; text-align:center; margin-top:14px;">
-                      <div class="spinner" style="border-top-color:var(--primary); width:26px; height:26px; margin:0 auto 10px;"></div>
-                      <p style="font-size:0.92rem; font-weight:600; color:#334155;">${loadMsg}</p>
-                    </div>
-                  `;
-                }
-                btnText.innerText = (currentLang === 'vi' ? 'Đang trích xuất tri thức...' : 'Extracting knowledge...');
-              } else {
-                // KHÔNG TÌM THẤY MÓN ĂN NÀO ĐẠT CONFIDENCE YÊU CẦU -> DỪNG NGAY, KHÔNG GỌI LLM TRI THỨC!
-                shouldContinueToAnalyze = false;
-              }
-            }
-          } catch (predErr) {
-            console.warn("Fast predict warning:", predErr);
-          }
-
-          if (!shouldContinueToAnalyze) {
-            return;
-          }
-        }
-
-        // PHA 2: GỌI ANALYZE ĐỂ LẤY TOÀN BỘ TRI THỨC VÀ CÔNG THỨC (CHỈ CHẠY KHI CÓ MÓN ĂN THỎA ĐIỀU KIỆN)
-        const endpoint = mode === 'analyze' ? '/analyze' : '/predict';
-        const response = await fetch(endpoint, {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!response.ok) {
-          let errorMsg = `Server error (${response.status})`;
-          try {
-            const errData = await response.json();
+            const errData = await predResp.json();
             if (errData && errData.detail) errorMsg = errData.detail;
           } catch (_) {
-            if (response.status === 502) errorMsg = t('serverErr502');
-            else if (response.status === 504) errorMsg = t('serverErr504');
-            else if (response.status === 500) errorMsg = t('serverErr500');
+            if (predResp.status === 502) errorMsg = t('serverErr502');
+            else if (predResp.status === 504) errorMsg = t('serverErr504');
+            else if (predResp.status === 500) errorMsg = t('serverErr500');
           }
           throw new Error(errorMsg);
         }
 
-        const data = await response.json();
-        window.currentResultData = data;
-        renderResults(data, true); // true = lưu vào lịch sử
+        const predData = await predResp.json();
+        renderResults(predData, false);
+
+        const validDets = (predData.detections || []).filter(d => d.confidence >= conf);
+
+        // NẾU KHÔNG CÓ MÓN ĂN NÀO ĐẠT CONFIDENCE YÊU CẦU -> DỪNG NGAY
+        if (validDets.length === 0) {
+          return;
+        }
+
+        if (mode === 'predict') {
+          renderResults(predData, true); // Lưu vào lịch sử
+          return;
+        }
+
+        // PHA 2: TRÍCH XUẤT TRI THỨC BẰNG /foods-info (CHỈ GỬI TEXT TÊN MÓN DẠNG JSON, KHÔNG GỬI ẢNH NẶNG LẦN 2 -> KHÔNG BAO GIỜ BỊ 502)
+        btnText.innerText = (currentLang === 'vi' ? 'Đang trích xuất tri thức...' : 'Extracting knowledge...');
+        const infoContainer = document.getElementById('culinary-info-container');
+        if (infoContainer) {
+          const loadMsg = currentLang === 'vi' ? 'Đang trích xuất tri thức ẩm thực chuyên sâu...' : 'Extracting culinary knowledge...';
+          infoContainer.innerHTML = `
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:24px; text-align:center; margin-top:14px;">
+              <div class="spinner" style="border-top-color:var(--primary); width:26px; height:26px; margin:0 auto 10px;"></div>
+              <p style="font-size:0.92rem; font-weight:600; color:#334155;">${loadMsg}</p>
+            </div>
+          `;
+        }
+
+        const uniqueNames = [...new Set(validDets.map(d => d.class_name))];
+        try {
+          const infoResp = await fetch('/foods-info', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ food_names: uniqueNames })
+          });
+
+          if (infoResp.ok) {
+            const foodsList = await infoResp.json();
+            predData.foods_info = foodsList;
+            predData.food_info = foodsList[0] || null;
+            predData.message = (currentLang === 'vi')
+              ? `Đã phân tích hoàn tất ${foodsList.length} món ăn.`
+              : `Analysis complete for ${foodsList.length} dish(es).`;
+          }
+        } catch (infoErr) {
+          console.warn("Food info fetch error:", infoErr);
+        }
+
+        renderResults(predData, true); // Lưu vào lịch sử kèm đầy đủ tri thức
       } catch (err) {
         let errMsg = err.message || "";
         if (errMsg.includes("Failed to fetch") || errMsg.includes("NetworkError")) {
@@ -1909,6 +1968,9 @@ async def predict(
             status_code=500,
             detail=f"Lỗi khi nhận diện hình ảnh: {str(exc)}",
         ) from exc
+    finally:
+        del image
+        gc.collect()
 
     if not detections:
         return PredictResponse(
@@ -1970,6 +2032,38 @@ def food_info(
 
 
 # ============================================================
+# FOODS INFO (TRA CỨU TRI THỨC CHO DANH SÁCH MÓN ĂN - SIÊU NHẸ)
+# ============================================================
+
+@app.post(
+    "/foods-info",
+    response_model=List[FoodInfoResponse],
+)
+def foods_info(
+    request: FoodsInfoRequest,
+):
+    """
+    Nhận danh sách tên món ăn và tra cứu thông tin ẩm thực chi tiết (siêu nhẹ, không truyền ảnh).
+    """
+    active_llm = get_llm()
+    if active_llm is None:
+        return []
+
+    unique_names = [format_food_name(name) for name in request.food_names if name.strip()]
+    if not unique_names:
+        return []
+
+    try:
+        results = active_llm.get_foods_info(unique_names)
+        for item in results:
+            item.food_name = format_food_name(item.food_name)
+        return results
+    except Exception as exc:
+        print(f"[foods-info] Loi khi lay thong tin mon: {exc}")
+        return []
+
+
+# ============================================================
 # ANALYZE (PIPELINE TOÀN DIỆN - NHẬN ĐÚNG NGƯỠNG CONFIDENCE)
 # ============================================================
 
@@ -2006,6 +2100,9 @@ async def analyze(
             status_code=500,
             detail=f"Lỗi khi nhận diện hình ảnh: {str(exc)}",
         ) from exc
+    finally:
+        del image
+        gc.collect()
 
     if not detections:
         return AnalyzeResponse(
