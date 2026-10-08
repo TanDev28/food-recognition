@@ -138,10 +138,11 @@ class FoodDetector:
         self,
         image: Image.Image,
         confidence_threshold: Optional[float] = None,
+        original_size: Optional[tuple[int, int]] = None,
     ) -> List[Detection]:
         """
         Nhận một ảnh PIL và trả về danh sách detection với tên tiếng Việt có dấu,
-        áp dụng đúng ngưỡng confidence yêu cầu.
+        áp dụng đúng ngưỡng confidence và tự động scale tọa độ bounding box về kích thước ảnh gốc.
         """
         confidence = (
             float(confidence_threshold)
@@ -151,6 +152,10 @@ class FoodDetector:
 
         # Đảm bảo ảnh ở dạng RGB
         image = image.convert("RGB")
+        curr_w, curr_h = image.size
+        orig_w, orig_h = original_size if original_size else (curr_w, curr_h)
+        scale_x = (orig_w / curr_w) if curr_w > 0 else 1.0
+        scale_y = (orig_h / curr_h) if curr_h > 0 else 1.0
 
         # Tối ưu hóa bộ nhớ inference
         ctx = torch.inference_mode() if torch is not None else nullcontext()
@@ -159,6 +164,7 @@ class FoodDetector:
                 source=image,
                 imgsz=self.image_size,
                 conf=confidence,
+                iou=0.45,  # Ngăn chặn các bounding box chồng lấn thừa
                 verbose=False,
             )
 
@@ -181,6 +187,12 @@ class FoodDetector:
                 xyxy = boxes.xyxy[i].tolist()
                 x1, y1, x2, y2 = xyxy
 
+                # Scale tọa độ Bounding Box về kích thước ảnh gốc hiển thị trên Canvas
+                scaled_x1 = max(0.0, min(float(orig_w), float(x1) * scale_x))
+                scaled_y1 = max(0.0, min(float(orig_h), float(y1) * scale_y))
+                scaled_x2 = max(0.0, min(float(orig_w), float(x2) * scale_x))
+                scaled_y2 = max(0.0, min(float(orig_h), float(y2) * scale_y))
+
                 # Lấy tên class từ model và chuẩn hóa sang tiếng Việt có dấu
                 raw_class_name = self.model.names.get(class_id, f"Class {class_id}")
                 class_name = format_food_name(raw_class_name)
@@ -190,10 +202,10 @@ class FoodDetector:
                     class_name=class_name,
                     confidence=confidence_score,
                     box=BoundingBox(
-                        x1=float(x1),
-                        y1=float(y1),
-                        x2=float(x2),
-                        y2=float(y2),
+                        x1=scaled_x1,
+                        y1=scaled_y1,
+                        x2=scaled_x2,
+                        y2=scaled_y2,
                     ),
                 )
 

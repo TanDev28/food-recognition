@@ -123,11 +123,12 @@ get_llm()
 # HELPER FUNCTIONS (TỐI ƯU BỘ NHỚ TRÁNH LỖI 502 TRÊN RENDER)
 # ============================================================
 
-async def read_image(file: UploadFile) -> Image.Image:
+async def read_image(file: UploadFile) -> tuple[Image.Image, tuple[int, int]]:
     """
     Đọc file upload và chuyển thành PIL Image chuẩn RGB.
     Tự động xoay chuẩn theo EXIF từ máy ảnh điện thoại và
     giới hạn kích thước tối đa (max 1280px) để chống tràn RAM (OOM) trên Render 512MB.
+    Trả về (image_đã_tối_ưu, (orig_w, orig_h)) để giữ độ chính xác tuyệt đối của Bounding Box.
     """
     if not file.content_type:
         raise HTTPException(
@@ -170,13 +171,15 @@ async def read_image(file: UploadFile) -> Image.Image:
             image = raw_image
         image = image.convert("RGB")
 
+        orig_size = image.size  # (orig_w, orig_h) kích thước thực tế sau khi đã chuẩn hóa EXIF
+
         # Thu nhỏ ảnh nếu kích thước quá lớn (> 1280px) để tiết kiệm 80-90% RAM
         # YOLOv8 resize về 640px nên hoàn toàn không làm giảm độ chính xác
         max_dim = 1280
         if max(image.size) > max_dim:
             image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
-        return image
+        return image, orig_size
     except Exception as exc:
         raise HTTPException(
             status_code=400,
@@ -1634,10 +1637,18 @@ HTML_PAGE = """<!DOCTYPE html>
       resultContent.style.display = 'block';
 
       const canvas = document.getElementById('result-canvas');
-      canvas.width = loadedImage.naturalWidth;
-      canvas.height = loadedImage.naturalHeight;
+      const canvasW = loadedImage.naturalWidth || loadedImage.width;
+      const canvasH = loadedImage.naturalHeight || loadedImage.height;
+      canvas.width = canvasW;
+      canvas.height = canvasH;
       const ctx = canvas.getContext('2d');
-      ctx.drawImage(loadedImage, 0, 0);
+      ctx.drawImage(loadedImage, 0, 0, canvasW, canvasH);
+
+      // Tự động scale tọa độ nếu canvas khác kích thước gốc (hỗ trợ chính xác cả khi xem lại từ history thumbnail)
+      const baseW = data.image_width || canvasW;
+      const baseH = data.image_height || canvasH;
+      const scaleX = (baseW > 0) ? (canvasW / baseW) : 1.0;
+      const scaleY = (baseH > 0) ? (canvasH / baseH) : 1.0;
 
       const currentConf = parseFloat(document.getElementById('conf-slider').value) || 0.25;
       const rawDetections = data.detections || [];
@@ -1659,10 +1670,15 @@ HTML_PAGE = """<!DOCTYPE html>
           const confPercent = Math.round(d.confidence * 100);
           const displayName = getDisplayName(d.class_name);
 
-          // Vẽ Bounding Box
+          const x1 = b.x1 * scaleX;
+          const y1 = b.y1 * scaleY;
+          const boxW = (b.x2 - b.x1) * scaleX;
+          const boxH = (b.y2 - b.y1) * scaleY;
+
+          // Vẽ Bounding Box chính xác ôm trọn món ăn
           ctx.lineWidth = Math.max(3, Math.round(canvas.width / 240));
           ctx.strokeStyle = color;
-          ctx.strokeRect(b.x1, b.y1, b.x2 - b.x1, b.y2 - b.y1);
+          ctx.strokeRect(x1, y1, boxW, boxH);
 
           // Nhãn trên Canvas (theo ngôn ngữ đã chọn)
           const label = `${displayName} (${confPercent}%)`;
@@ -1672,9 +1688,9 @@ HTML_PAGE = """<!DOCTYPE html>
           const textHeight = fontSize + 4;
 
           ctx.fillStyle = color;
-          ctx.fillRect(b.x1, Math.max(0, b.y1 - textHeight - 6), textWidth + 12, textHeight + 6);
+          ctx.fillRect(x1, Math.max(0, y1 - textHeight - 6), textWidth + 12, textHeight + 6);
           ctx.fillStyle = '#ffffff';
-          ctx.fillText(label, b.x1 + 6, Math.max(textHeight, b.y1 - 4));
+          ctx.fillText(label, x1 + 6, Math.max(textHeight, y1 - 4));
 
           // Detection Chip (không có icon emoji)
           const chip = document.createElement('div');
@@ -1844,10 +1860,14 @@ async def predict(
             detail=f"Mô hình YOLO chưa sẵn sàng: {detector_error or 'Không xác định'}",
         )
 
-    image = await read_image(file)
+    image, orig_size = await read_image(file)
 
     try:
-        detections = active_det.predict(image, confidence_threshold=confidence)
+        detections = active_det.predict(
+            image,
+            confidence_threshold=confidence,
+            original_size=orig_size,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -1858,6 +1878,8 @@ async def predict(
         return PredictResponse(
             success=True,
             detections=[],
+            image_width=orig_size[0],
+            image_height=orig_size[1],
             message=(
                 "Không phát hiện được món ăn "
                 "với ngưỡng confidence hiện tại."
@@ -1867,6 +1889,8 @@ async def predict(
     return PredictResponse(
         success=True,
         detections=detections,
+        image_width=orig_size[0],
+        image_height=orig_size[1],
         message="Nhận diện thành công.",
     )
 
@@ -1932,11 +1956,15 @@ async def analyze(
             detail=f"Mô hình YOLO chưa sẵn sàng: {detector_error or 'Không xác định'}",
         )
 
-    image = await read_image(file)
+    image, orig_size = await read_image(file)
 
     # 1. YOLO Detect theo đúng ngưỡng confidence
     try:
-        detections = active_det.predict(image, confidence_threshold=confidence)
+        detections = active_det.predict(
+            image,
+            confidence_threshold=confidence,
+            original_size=orig_size,
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=500,
@@ -1949,6 +1977,8 @@ async def analyze(
             detections=[],
             food_info=None,
             foods_info=[],
+            image_width=orig_size[0],
+            image_height=orig_size[1],
             message="Không phát hiện được món ăn trong ảnh.",
         )
 
@@ -1970,6 +2000,8 @@ async def analyze(
             detections=detections,
             food_info=None,
             foods_info=[],
+            image_width=orig_size[0],
+            image_height=orig_size[1],
             message=(
                 f"Đã nhận diện {len(unique_food_names)} món: {', '.join(unique_food_names)}. "
                 "Hệ thống tri thức chưa được cấu hình API Key."
@@ -1991,5 +2023,7 @@ async def analyze(
         detections=detections,
         food_info=primary_food_info,
         foods_info=foods_info,
+        image_width=orig_size[0],
+        image_height=orig_size[1],
         message=f"Đã phân tích hoàn tất {len(foods_info)} món ăn." if foods_info else "Phân tích hoàn tất.",
     )

@@ -19,6 +19,8 @@ class Detection(BaseModel):
 class PredictResponse(BaseModel):
     success: bool
     detections: List[Detection]
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
     message: Optional[str] = None
 
 
@@ -43,4 +45,6 @@ class AnalyzeResponse(BaseModel):
     detections: List[Detection]
     food_info: Optional[FoodInfoResponse] = None
     foods_info: List[FoodInfoResponse] = Field(default_factory=list)
+    image_width: Optional[int] = None
+    image_height: Optional[int] = None
     message: Optional[str] = None
