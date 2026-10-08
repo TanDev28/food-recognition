@@ -173,9 +173,8 @@ async def read_image(file: UploadFile) -> tuple[Image.Image, tuple[int, int]]:
 
         orig_size = image.size  # (orig_w, orig_h) kích thước thực tế sau khi đã chuẩn hóa EXIF
 
-        # Thu nhỏ ảnh nếu kích thước quá lớn (> 1280px) để tiết kiệm 80-90% RAM
-        # YOLOv8 resize về 640px nên hoàn toàn không làm giảm độ chính xác
-        max_dim = 1280
+        # Giữ độ phân giải sắc nét (max 2048px) cho chi tiết hạt cơm và thức ăn, vẫn kiểm soát RAM an toàn
+        max_dim = 2048
         if max(image.size) > max_dim:
             image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
 
@@ -374,6 +373,7 @@ HTML_PAGE = """<!DOCTYPE html>
 
     .preview-img-wrap {
       width: 100%;
+      height: 280px;
       max-height: 280px;
       background: #0f172a;
       display: flex;
@@ -497,10 +497,11 @@ HTML_PAGE = """<!DOCTYPE html>
     .btn-submit:hover { background: var(--primary-hover); }
     .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; box-shadow: none; }
 
-    /* RIGHT: RESULT CONTAINER */
+    /* RIGHT: RESULT CONTAINER (CÙNG KÍCH THƯỚC CHUẨN VỚI Ô BÊN TRÁI) */
     .result-canvas-wrap {
       width: 100%;
-      min-height: 260px;
+      height: 280px;
+      max-height: 280px;
       background: #0f172a;
       border-radius: 12px;
       overflow: hidden;
@@ -511,7 +512,8 @@ HTML_PAGE = """<!DOCTYPE html>
 
     canvas {
       max-width: 100%;
-      height: auto;
+      max-height: 280px;
+      object-fit: contain;
       display: block;
     }
 
@@ -937,9 +939,9 @@ HTML_PAGE = """<!DOCTYPE html>
           <div>
             <div class="slider-group">
               <label for="conf-slider" data-i18n="confLabel">Độ tin cậy tối thiểu (Confidence):</label>
-              <span class="conf-badge" id="conf-val">25%</span>
+              <span class="conf-badge" id="conf-val">20%</span>
             </div>
-            <input type="range" id="conf-slider" min="0.05" max="0.95" step="0.05" value="0.25" oninput="document.getElementById('conf-val').innerText = Math.round(this.value * 100) + '%'">
+            <input type="range" id="conf-slider" min="0.05" max="0.95" step="0.05" value="0.20" oninput="document.getElementById('conf-val').innerText = Math.round(this.value * 100) + '%'">
           </div>
 
           <div class="mode-select">
@@ -1568,6 +1570,7 @@ HTML_PAGE = """<!DOCTYPE html>
       try {
         // PHA 1: NẾU CHẾ ĐỘ PHÂN TÍCH, GỌI /predict ĐỂ VẼ BOUNDING BOX NGAY TRONG 1S
         if (mode === 'analyze') {
+          let shouldContinueToAnalyze = true;
           try {
             const predResp = await fetch('/predict', { method: 'POST', body: formData });
             if (predResp.ok) {
@@ -1586,15 +1589,22 @@ HTML_PAGE = """<!DOCTYPE html>
                     </div>
                   `;
                 }
+                btnText.innerText = (currentLang === 'vi' ? 'Đang trích xuất tri thức...' : 'Extracting knowledge...');
+              } else {
+                // KHÔNG TÌM THẤY MÓN ĂN NÀO ĐẠT CONFIDENCE YÊU CẦU -> DỪNG NGAY, KHÔNG GỌI LLM TRI THỨC!
+                shouldContinueToAnalyze = false;
               }
             }
           } catch (predErr) {
             console.warn("Fast predict warning:", predErr);
           }
-          btnText.innerText = (currentLang === 'vi' ? 'Đang trích xuất tri thức...' : 'Extracting knowledge...');
+
+          if (!shouldContinueToAnalyze) {
+            return;
+          }
         }
 
-        // PHA 2: GỌI ANALYZE ĐỂ LẤY TOÀN BỘ TRI THỨC VÀ CÔNG THỨC
+        // PHA 2: GỌI ANALYZE ĐỂ LẤY TOÀN BỘ TRI THỨC VÀ CÔNG THỨC (CHỈ CHẠY KHI CÓ MÓN ĂN THỎA ĐIỀU KIỆN)
         const endpoint = mode === 'analyze' ? '/analyze' : '/predict';
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -1724,15 +1734,28 @@ HTML_PAGE = """<!DOCTYPE html>
       }
 
       // THẺ TRI THỨC ẨM THỰC (CHUYỂN TOÀN BỘ NỘI DUNG SANG TIẾNG ANH KHI CHỌN ENGLISH)
-      const detectedNamesSet = new Set(detections.map(d => formatFoodName(d.class_name).toLowerCase()));
       const rawFoodsList = (data.foods_info && data.foods_info.length > 0)
         ? data.foods_info
         : (data.food_info ? [data.food_info] : []);
 
-      const foodsList = rawFoodsList.filter(info => {
-        if (detections.length === 0) return false;
-        return detectedNamesSet.has(formatFoodName(info.food_name).toLowerCase());
-      });
+      let foodsList = [];
+      if (detections.length > 0 && rawFoodsList.length > 0) {
+        const detectedNames = detections.map(d => formatFoodName(d.class_name).toLowerCase().trim());
+        foodsList = rawFoodsList.filter(info => {
+          const infoName = formatFoodName(info.food_name).toLowerCase().trim();
+          // Kiểm tra khớp trực tiếp hoặc bao hàm 2 chiều (ví dụ: "trứng ốp la" <-> "trứng", "thịt nướng" <-> "thịt heo")
+          return detectedNames.some(dName => 
+            infoName === dName || 
+            infoName.includes(dName) || 
+            dName.includes(infoName)
+          );
+        });
+
+        // Nếu vì lý do đặt tên của LLM mà filter không bắt được nhưng server đã phân tích trả về
+        if (foodsList.length === 0) {
+          foodsList = rawFoodsList;
+        }
+      }
 
       if (foodsList.length > 0) {
         let cardsHtml = '';

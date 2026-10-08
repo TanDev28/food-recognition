@@ -115,7 +115,7 @@ class FoodDetector:
     def __init__(
         self,
         model_path: str = "models/best.pt",
-        confidence_threshold: float = 0.25,
+        confidence_threshold: float = 0.20,
         image_size: int = 640,
     ):
         if YOLO is None:
@@ -164,7 +164,6 @@ class FoodDetector:
                 source=image,
                 imgsz=self.image_size,
                 conf=confidence,
-                iou=0.45,  # Ngăn chặn các bounding box chồng lấn thừa
                 verbose=False,
             )
 

@@ -165,6 +165,60 @@ _PRESEEDED_KNOWLEDGE: Dict[str, Dict[str, Any]] = {
             "preparation": "Simmer beef shank and pork with bruised lemongrass; season with strained shrimp paste and red annatto oil; ladle over warm noodles with fresh herbs.",
             "note": "Serve piping hot with shredded banana blossoms, water spinach, and freshly squeezed lime."
         }
+    },
+    "trứng": {
+        "food_name": "Trứng",
+        "description": "Thành phần giàu dinh dưỡng và quen thuộc trong ẩm thực Việt Nam, thường được chế biến dạng ốp la lòng đào hoặc chiên vàng thơm ngậy ăn kèm các món cơm, bánh mì.",
+        "origin": "Phổ biến trong ẩm thực toàn cầu và là món ăn kèm kinh điển của các món cơm tấm, bánh mì chảo tại Việt Nam.",
+        "ingredients": ["Trứng gà/vịt", "Dầu ăn/bơ", "Tiêu đen", "Nước tương hoặc nước mắm", "Hành lá"],
+        "taste": "Vị béo ngậy, bùi bùi của lòng đỏ tan chảy hòa quyện cùng lớp lòng trắng viền giòn xém cạnh thơm lừng.",
+        "preparation": "Đun nóng chảo dầu hoặc bơ; đập trứng trực tiếp vào chảo với lửa vừa để viền giòn vàng và lòng đỏ lòng đào; rắc chút tiêu và hành hoa.",
+        "note": "Ngon nhất khi thưởng thức nóng hổi, lòng đào sánh mịn chấm cùng nước mắm chua ngọt hoặc nước tương tỏi ớt.",
+        "en": {
+            "food_name": "Fried Egg (Trứng ốp la)",
+            "description": "Nutritious and comforting staple in Vietnamese cuisine, commonly prepared sunny-side up with a velvety runny yolk to accompany broken rice or baguettes.",
+            "origin": "Ubiquitous breakfast and topping tradition across Vietnam, especially in Saigon's broken rice stalls.",
+            "ingredients": ["Fresh eggs", "Cooking oil or butter", "Black pepper", "Soy sauce or fish sauce", "Scallions"],
+            "taste": "Rich, silky running yolk paired with crispy golden edges and savory aroma.",
+            "preparation": "Heat oil in a skillet; crack egg directly into the pan over medium heat until edges crisp while keeping yolk liquid; finish with black pepper.",
+            "note": "Best enjoyed steaming hot, mixing the velvety runny yolk into warm rice or dipping with bread."
+        }
+    },
+    "trứng ốp la": {
+        "food_name": "Trứng ốp la",
+        "description": "Món trứng chiên lòng đào thơm lừng với viền lòng trắng giòn rụm và lòng đỏ sánh mịn béo ngậy, món ăn kèm không thể thiếu của cơm tấm và bánh mì.",
+        "origin": "Du nhập từ Pháp (oeuf au plat) và trở thành nét ẩm thực đường phố đặc trưng thân thuộc của người Việt.",
+        "ingredients": ["Trứng gà", "Bơ hoặc dầu ăn", "Hạt tiêu xay", "Nước tương", "Mỡ hành"],
+        "taste": "Lòng đỏ béo ngậy bùi thơm, lòng trắng mềm ngọt với viền xém giòn tan đậm đà.",
+        "preparation": "Làm nóng chảo với ít bơ; chiên trứng nhanh tay ở nhiệt độ thích hợp để đạt độ lòng đào hoàn hảo; rưới thêm mỡ hành hoặc tiêu.",
+        "note": "Rưới một thìa mỡ hành thơm phức và nước mắm ớt lên trên lòng đào khi ăn cùng cơm tấm để tăng hương vị.",
+        "en": {
+            "food_name": "Sunny-Side Up Egg (Trứng ốp la)",
+            "description": "Classic sunny-side up fried egg featuring crispy caramelized edges and a rich runny center, an indispensable topping for Vietnamese broken rice.",
+            "origin": "French culinary influence seamlessly adapted into everyday Vietnamese meals.",
+            "ingredients": ["Fresh eggs", "Butter or cooking oil", "Ground black pepper", "Soy sauce", "Scallion oil"],
+            "taste": "Silky, creamy, umami-rich yolk with delightfully crisp borders.",
+            "preparation": "Fry gently in buttered skillet until white sets with crispy borders while yolk stays soft; top with scallion oil.",
+            "note": "Drizzle fragrant scallion oil and seasoned fish sauce over the egg for the authentic flavor."
+        }
+    },
+    "thịt nướng": {
+        "food_name": "Thịt nướng",
+        "description": "Thịt heo tẩm ướp đậm đà gia vị sả, tỏi, mật ong và nước mắm truyền thống, nướng xém cạnh trên than hoa đỏ rực dậy mùi thơm quyến rũ.",
+        "origin": "Đặc trưng của ẩm thực Nam Bộ và miền Trung, xuất hiện chủ đạo trong cơm tấm, bún thịt nướng, bánh ướt.",
+        "ingredients": ["Thịt ba chỉ hoặc nạc vai", "Sả băm", "Hành tỏi băm", "Mật ong", "Nước mắm", "Dầu hào", "Tiêu", "Mè rang"],
+        "taste": "Đậm đà mặn ngọt hài hòa, thơm nức mùi sả và khói than hoa, miếng thịt mềm mọng nước không bị khô.",
+        "preparation": "Ướp thịt thái mỏng cùng hỗn hợp sốt sả mật ong ít nhất 2 giờ; kẹp vỉ nướng trên than hoa chín vàng đều 2 mặt.",
+        "note": "Thịt nướng ngon nhất khi nướng than hoa vừa chín tới, viền hơi xém cạnh bóng bẩy nước sốt.",
+        "en": {
+            "food_name": "Charcoal-Grilled Pork (Thịt nướng)",
+            "description": "Marinated pork slices grilled over glowing charcoal embers with lemongrass, garlic, honey, and fish sauce.",
+            "origin": "A culinary hallmark across Southern and Central Vietnam, celebrated in broken rice and noodle bowls.",
+            "ingredients": ["Pork shoulder or belly", "Minced lemongrass", "Garlic & shallots", "Honey", "Fish sauce", "Oyster sauce", "Black pepper", "Sesame seeds"],
+            "taste": "Smoky, sweet-savory perfection with caramelized edges and juicy, tender texture.",
+            "preparation": "Marinate thin pork slices with lemongrass-honey sauce; grill over hot charcoal turning frequently until golden brown.",
+            "note": "Best served straight off the grill with smoky aroma and glossy glaze."
+        }
     }
 }
 
